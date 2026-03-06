@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, useMotionTemplate } from 'motion/react';
 import { Home, Search, Library, Play, Pause, SkipForward, SkipBack, ChevronDown, Repeat, Shuffle, Heart, ListMusic, Plus, X, Mic2, User, Users, Download, CheckCircle2, Loader2, MoreVertical, Share2, Settings, Bell, Wifi, Shield, LogOut, ChevronRight, Smartphone } from 'lucide-react';
 import { io } from 'socket.io-client';
+import { SpeedInsights } from '@vercel/speed-insights/react';
 import { usePlayerStore, Song } from './store/usePlayerStore';
 import { useLibraryStore } from './store/useLibraryStore';
 import { useDownloadStore } from './store/useDownloadStore';
@@ -1835,6 +1836,9 @@ export default function App() {
           </motion.div>
         )}
       </AnimatePresence>
+      
+      {/* Vercel Speed Insights */}
+      <SpeedInsights />
     </div>
   );
 }
