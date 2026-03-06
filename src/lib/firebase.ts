@@ -20,13 +20,16 @@ export const googleProvider = new GoogleAuthProvider();
 
 export const signInWithGoogle = async () => {
   if (!auth) {
-    throw new Error("Firebase is not configured. Please add your Firebase credentials to the environment variables.");
+    throw new Error("Firebase is not configured. The VITE_FIREBASE_API_KEY environment variable is missing. If you are on Vercel, ensure you added the variables to Settings > Environment Variables, and then triggered a NEW deployment (uncheck 'Use existing build cache').");
   }
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error signing in with Google", error);
+    if (error.code === 'auth/unauthorized-domain') {
+      throw new Error(`Domain not authorized. Please add exactly this domain to Firebase Authentication > Settings > Authorized domains: ${window.location.hostname}`);
+    }
     throw error;
   }
 };

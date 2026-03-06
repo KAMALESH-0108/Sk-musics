@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, useMotionTemplate } from 'motion/react';
-import { Home, Search, Library, Play, Pause, SkipForward, SkipBack, ChevronDown, Repeat, Shuffle, Heart, ListMusic, Plus, X, Mic2, User, Users, Download, CheckCircle2, Loader2, MoreVertical, Share2 } from 'lucide-react';
+import { Home, Search, Library, Play, Pause, SkipForward, SkipBack, ChevronDown, Repeat, Shuffle, Heart, ListMusic, Plus, X, Mic2, User, Users, Download, CheckCircle2, Loader2, MoreVertical, Share2, Settings, Bell, Wifi, Shield, LogOut, ChevronRight, Smartphone } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { usePlayerStore, Song } from './store/usePlayerStore';
 import { useLibraryStore } from './store/useLibraryStore';
@@ -333,7 +333,7 @@ const FullScreenPlayer = () => {
   const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
   const liked = isLiked(currentSong.id);
   const downloaded = isDownloaded(currentSong.id);
-  const downloading = isDownloading(currentSong.id);
+  const downloading = isDownloading[currentSong.id];
 
   const startJam = () => {
     const newJamId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -1276,6 +1276,13 @@ const ProfileView = () => {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
+  // Preferences State
+  const [audioQuality, setAudioQuality] = useState('High');
+  const [downloadWifiOnly, setDownloadWifiOnly] = useState(true);
+  const [notifications, setNotifications] = useState(true);
+  const [offlineMode, setOfflineMode] = useState(false);
+  const [dataSaver, setDataSaver] = useState(false);
+
   const handleGoogleLogin = async () => {
     try {
       setAuthError('');
@@ -1299,54 +1306,138 @@ const ProfileView = () => {
     }
   };
 
+  const Toggle = ({ checked, onChange }: { checked: boolean, onChange: () => void }) => (
+    <div 
+      onClick={onChange}
+      className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors duration-300 ${checked ? 'bg-red-600' : 'bg-zinc-700'}`}
+    >
+      <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform duration-300 ${checked ? 'translate-x-6' : 'translate-x-0.5'}`}></div>
+    </div>
+  );
+
+  const SettingRow = ({ icon: Icon, title, subtitle, rightElement, onClick }: any) => (
+    <div 
+      onClick={onClick}
+      className={`flex items-center justify-between py-4 border-b border-zinc-800/50 ${onClick ? 'cursor-pointer hover:bg-zinc-800/30 -mx-4 px-4 transition-colors' : ''}`}
+    >
+      <div className="flex items-center gap-4">
+        <div className="w-10 h-10 rounded-full bg-zinc-900 flex items-center justify-center text-zinc-400">
+          <Icon size={20} />
+        </div>
+        <div>
+          <div className="text-white font-medium">{title}</div>
+          {subtitle && <div className="text-sm text-zinc-500">{subtitle}</div>}
+        </div>
+      </div>
+      <div>
+        {rightElement || (onClick && <ChevronRight size={20} className="text-zinc-600" />)}
+      </div>
+    </div>
+  );
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.98 }}
       transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-      className="flex-1 flex flex-col pt-12 pb-32 px-4"
+      className="flex-1 flex flex-col pt-12 pb-32 px-4 overflow-y-auto hide-scrollbar"
     >
-      <h1 className="text-3xl font-bold text-red-500 mb-8">Profile</h1>
+      <h1 className="text-3xl font-bold text-red-500 mb-8 px-2">Profile</h1>
       
       {isLoading ? (
         <div className="text-center text-zinc-500 mt-10">Loading...</div>
       ) : user ? (
-        <div className="flex flex-col items-center mt-10">
-          {user.photoURL ? (
-            <img src={user.photoURL} alt={user.displayName || 'User'} className="w-24 h-24 rounded-full border-2 border-red-500 mb-4 object-cover" loading="lazy" />
-          ) : (
-            <div className="w-24 h-24 rounded-full border-2 border-red-500 mb-4 bg-zinc-800 flex items-center justify-center text-zinc-500">
-              <User size={40} />
-            </div>
-          )}
-          <h2 className="text-2xl font-bold text-white mb-1">{user.displayName || 'User'}</h2>
-          <p className="text-zinc-400 mb-8">{user.email}</p>
-          
-          <div className="w-full bg-zinc-900/50 rounded-2xl p-4 border border-red-900/30 mb-8">
-            <h3 className="text-lg font-semibold text-white mb-2">Account Settings</h3>
-            <div className="flex justify-between items-center py-3 border-b border-zinc-800">
-              <span className="text-zinc-300">Subscription</span>
-              <span className="text-red-500 font-medium">Free</span>
-            </div>
-            <div className="flex justify-between items-center py-3 border-b border-zinc-800">
-              <span className="text-zinc-300">Audio Quality</span>
-              <span className="text-white">High</span>
-            </div>
-            <div className="flex justify-between items-center py-3">
-              <span className="text-zinc-300">Download over Wi-Fi only</span>
-              <div className="w-10 h-6 bg-red-500 rounded-full relative">
-                <div className="w-4 h-4 bg-white rounded-full absolute right-1 top-1"></div>
+        <div className="flex flex-col w-full max-w-md mx-auto">
+          {/* Profile Header */}
+          <div className="flex items-center gap-6 mb-10 px-2">
+            {user.photoURL ? (
+              <img src={user.photoURL} alt={user.displayName || 'User'} className="w-24 h-24 rounded-full border-2 border-red-500 object-cover shadow-lg shadow-red-900/20" loading="lazy" />
+            ) : (
+              <div className="w-24 h-24 rounded-full border-2 border-red-500 bg-zinc-800 flex items-center justify-center text-zinc-500 shadow-lg shadow-red-900/20">
+                <User size={40} />
+              </div>
+            )}
+            <div className="flex-1">
+              <h2 className="text-2xl font-bold text-white mb-1">{user.displayName || 'User'}</h2>
+              <p className="text-zinc-400 text-sm mb-3">{user.email}</p>
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-red-500/10 border border-red-500/20 text-red-400 text-xs font-medium uppercase tracking-wider">
+                Free Plan
               </div>
             </div>
           </div>
           
-          <button 
-            onClick={handleLogout}
-            className="w-full py-3 rounded-xl border border-red-900/50 text-red-400 font-semibold hover:bg-red-900/20 transition-colors"
-          >
-            Log Out
-          </button>
+          {/* Preferences Sections */}
+          <div className="space-y-8">
+            
+            {/* Playback Settings */}
+            <section>
+              <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 px-2">Playback</h3>
+              <div className="bg-zinc-900/40 rounded-3xl p-4 border border-zinc-800/50">
+                <SettingRow 
+                  icon={Wifi} 
+                  title="Audio Quality" 
+                  subtitle="Streaming quality on Wi-Fi"
+                  rightElement={<span className="text-red-400 font-medium text-sm">{audioQuality}</span>}
+                  onClick={() => setAudioQuality(q => q === 'High' ? 'Normal' : q === 'Normal' ? 'Low' : 'High')}
+                />
+                <SettingRow 
+                  icon={Smartphone} 
+                  title="Data Saver" 
+                  subtitle="Sets audio quality to low"
+                  rightElement={<Toggle checked={dataSaver} onChange={() => setDataSaver(!dataSaver)} />}
+                />
+                <SettingRow 
+                  icon={Download} 
+                  title="Download over Wi-Fi only" 
+                  rightElement={<Toggle checked={downloadWifiOnly} onChange={() => setDownloadWifiOnly(!downloadWifiOnly)} />}
+                />
+                <SettingRow 
+                  icon={CheckCircle2} 
+                  title="Offline Mode" 
+                  subtitle="Only play downloaded songs"
+                  rightElement={<Toggle checked={offlineMode} onChange={() => setOfflineMode(!offlineMode)} />}
+                />
+              </div>
+            </section>
+
+            {/* Account Settings */}
+            <section>
+              <h3 className="text-xs font-bold text-zinc-500 uppercase tracking-wider mb-2 px-2">Account</h3>
+              <div className="bg-zinc-900/40 rounded-3xl p-4 border border-zinc-800/50">
+                <SettingRow 
+                  icon={Bell} 
+                  title="Notifications" 
+                  subtitle="Push notifications for new releases"
+                  rightElement={<Toggle checked={notifications} onChange={() => setNotifications(!notifications)} />}
+                />
+                <SettingRow 
+                  icon={Shield} 
+                  title="Privacy & Security" 
+                  onClick={() => {}}
+                />
+                <SettingRow 
+                  icon={Settings} 
+                  title="App Settings" 
+                  onClick={() => {}}
+                />
+              </div>
+            </section>
+
+            {/* Actions */}
+            <section className="px-2 pt-4">
+              <button 
+                onClick={handleLogout}
+                className="w-full py-4 rounded-2xl border border-red-900/50 text-red-400 font-bold hover:bg-red-900/20 transition-colors flex items-center justify-center gap-2"
+              >
+                <LogOut size={20} />
+                Log Out
+              </button>
+              <p className="text-center text-zinc-600 text-xs mt-6">
+                Music App v1.0.0
+              </p>
+            </section>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col items-center justify-center flex-1 w-full max-w-sm mx-auto">
@@ -1452,6 +1543,46 @@ const ProfileView = () => {
 // --- Main App ---
 
 const socket = io();
+
+interface ErrorBoundaryProps {
+  children: React.ReactNode;
+  key?: string;
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean;
+  error: Error | null;
+}
+
+class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = { hasError: false, error: null };
+
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+  }
+
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-4 bg-red-900/50 text-white rounded-lg m-4">
+          <h2 className="text-xl font-bold mb-2">Something went wrong.</h2>
+          <pre className="text-sm overflow-auto">{this.state.error?.toString()}</pre>
+          <pre className="text-xs text-zinc-400 mt-2">{this.state.error?.stack}</pre>
+        </div>
+      );
+    }
+
+    return this.props.children; 
+  }
+}
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
@@ -1679,7 +1810,11 @@ export default function App() {
         {activeTab === 'home' && <HomeView key="home" />}
         {activeTab === 'search' && <SearchView key="search" />}
         {activeTab === 'library' && <LibraryView key="library" />}
-        {activeTab === 'profile' && <ProfileView key="profile" />}
+        {activeTab === 'profile' && (
+          <ErrorBoundary key="profile">
+            <ProfileView />
+          </ErrorBoundary>
+        )}
       </AnimatePresence>
 
       {/* Overlays */}
