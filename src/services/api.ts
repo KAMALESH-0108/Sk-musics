@@ -36,3 +36,35 @@ export const fetchTamilMusic = async (query: string = 'tamil', limit: number = 2
     return [];
   }
 };
+
+export const fetchRecommendations = async (history: Song[], likedSongs: Song[]): Promise<Song[]> => {
+  try {
+    // Extract artists and genres from history and liked songs
+    const artists = new Set<string>();
+    const keywords = new Set<string>();
+    
+    [...history, ...likedSongs].forEach(song => {
+      if (song.artist) {
+        song.artist.split(',').forEach(a => artists.add(a.trim()));
+      }
+      if (song.title) {
+        keywords.add(song.title.split(' ')[0]); // Simple keyword extraction
+      }
+    });
+
+    const artistList = Array.from(artists).slice(0, 3);
+    const keywordList = Array.from(keywords).slice(0, 2);
+    
+    let query = 'tamil hit songs';
+    if (artistList.length > 0) {
+      query = `tamil ${artistList.join(' ')}`;
+    } else if (keywordList.length > 0) {
+      query = `tamil ${keywordList.join(' ')}`;
+    }
+
+    return await fetchTamilMusic(query, 15);
+  } catch (error) {
+    console.error('Failed to fetch recommendations:', error);
+    return [];
+  }
+};

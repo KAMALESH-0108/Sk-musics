@@ -1,10 +1,15 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, useMotionTemplate } from 'motion/react';
-import { Home, Search, Library, Play, Pause, SkipForward, SkipBack, ChevronDown, Repeat, Shuffle, Heart, ListMusic, Plus, X, Mic2, User, Users } from 'lucide-react';
+import { Home, Search, Library, Play, Pause, SkipForward, SkipBack, ChevronDown, Repeat, Shuffle, Heart, ListMusic, Plus, X, Mic2, User, Users, Download, CheckCircle2, Loader2, MoreVertical, Share2 } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { usePlayerStore, Song } from './store/usePlayerStore';
 import { useLibraryStore } from './store/useLibraryStore';
-import { fetchTamilMusic } from './services/api';
+import { useDownloadStore } from './store/useDownloadStore';
+import { useNotificationStore } from './store/useNotificationStore';
+import { useAuthStore } from './store/useAuthStore';
+import { signInWithGoogle, logOut, auth } from './lib/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { fetchTamilMusic, fetchRecommendations } from './services/api';
 import { LyricsDisplay } from './components/LyricsDisplay';
 
 // --- Components ---
@@ -18,7 +23,7 @@ const BottomNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTa
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-black/80 backdrop-blur-xl border-t border-red-900/30 pb-safe pt-2 px-6 z-40">
+    <div className="fixed bottom-0 left-0 right-0 bg-zinc-900/80 backdrop-blur-xl border-t border-red-900/30 pb-safe pt-2 px-6 z-40">
       <div className="flex justify-between items-center max-w-md mx-auto h-14">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -57,7 +62,7 @@ const MiniPlayer = () => {
     >
       <div 
         onClick={() => setPlayerOpen(true)}
-        className="bg-zinc-950/90 backdrop-blur-xl border border-red-900/30 rounded-xl p-2 flex items-center gap-3 shadow-2xl cursor-pointer overflow-hidden relative"
+        className="bg-zinc-900/90 backdrop-blur-xl border border-red-900/30 rounded-xl p-2 flex items-center gap-3 shadow-2xl cursor-pointer overflow-hidden relative"
       >
         {/* Progress Bar Background */}
         <div className="absolute bottom-0 left-0 h-[2px] bg-white/10 w-full" />
@@ -216,7 +221,7 @@ const InteractiveAlbumArt = ({ song, isPlaying, onNext, onPrevious }: { song: So
 
       {/* Spinning Vinyl */}
       <motion.div
-        className="absolute w-[280px] h-[280px] rounded-full bg-zinc-950 border border-zinc-800 shadow-2xl flex items-center justify-center"
+        className="absolute w-[280px] h-[280px] rounded-full bg-zinc-900 border border-zinc-800 shadow-2xl flex items-center justify-center"
         initial={false}
         animate={{ 
           x: isPlaying ? 60 : 0, 
@@ -241,7 +246,7 @@ const InteractiveAlbumArt = ({ song, isPlaying, onNext, onPrevious }: { song: So
                   <ListMusic size={32} />
                 </div>
               )}
-              <div className="absolute w-4 h-4 bg-zinc-950 rounded-full border border-red-900/50" />
+              <div className="absolute w-4 h-4 bg-zinc-900 rounded-full border border-red-900/50" />
             </div>
           </div>
         </div>
@@ -312,6 +317,7 @@ const InteractiveAlbumArt = ({ song, isPlaying, onNext, onPrevious }: { song: So
 const FullScreenPlayer = () => {
   const { currentSong, queue, isPlaying, togglePlay, next, previous, isPlayerOpen, setPlayerOpen, progress, duration, setProgress, isShuffle, isRepeat, toggleShuffle, toggleRepeat, setCurrentSong, jamId, jamUsers } = usePlayerStore();
   const { toggleLike, isLiked } = useLibraryStore();
+  const { downloadSong, isDownloaded, isDownloading } = useDownloadStore();
   const [showQueue, setShowQueue] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [showJam, setShowJam] = useState(false);
@@ -326,6 +332,8 @@ const FullScreenPlayer = () => {
 
   const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
   const liked = isLiked(currentSong.id);
+  const downloaded = isDownloaded(currentSong.id);
+  const downloading = isDownloading(currentSong.id);
 
   const startJam = () => {
     const newJamId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -363,7 +371,7 @@ const FullScreenPlayer = () => {
               backgroundPosition: 'center'
             }}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-red-950/30 to-zinc-900/80 pointer-events-none" />
+          <div className="absolute inset-0 bg-gradient-to-t from-zinc-900 via-red-950/30 to-zinc-900/80 pointer-events-none" />
 
           <div className="relative z-10 flex-1 flex flex-col p-6 pt-12">
             {/* Header */}
@@ -406,7 +414,7 @@ const FullScreenPlayer = () => {
             </div>
 
             {showJam ? (
-              <div className="flex-1 overflow-y-auto mb-8 bg-black/40 rounded-2xl p-6 backdrop-blur-md border border-red-900/30">
+              <div className="flex-1 overflow-y-auto mb-8 bg-zinc-900/40 rounded-2xl p-6 backdrop-blur-md border border-red-900/30">
                 <h3 className="text-xl font-bold text-white mb-6 text-center">Jam Session</h3>
                 
                 {jamId ? (
@@ -484,8 +492,23 @@ const FullScreenPlayer = () => {
                 )}
               </div>
             ) : showQueue ? (
-              <div className="flex-1 overflow-y-auto mb-8 bg-black/40 rounded-2xl p-4 backdrop-blur-md border border-red-900/30 hide-scrollbar">
-                <div className="flex flex-col gap-2">
+              <div className="flex-1 overflow-y-auto mb-8 bg-zinc-900/40 rounded-2xl p-4 backdrop-blur-md border border-red-900/30 hide-scrollbar flex flex-col">
+                <div className="flex justify-between items-center mb-4 px-2">
+                  <h3 className="text-white font-bold">Up Next</h3>
+                  {queue.slice(queue.findIndex(s => s.id === currentSong.id) + 1).length > 1 && (
+                    <button 
+                      onClick={() => {
+                        usePlayerStore.getState().shuffleQueue();
+                        useNotificationStore.getState().showNotification('Queue shuffled');
+                      }}
+                      className="flex items-center gap-2 text-sm text-red-400 hover:text-red-300 transition-colors bg-red-900/20 px-3 py-1.5 rounded-full"
+                    >
+                      <Shuffle size={14} />
+                      Shuffle Queue
+                    </button>
+                  )}
+                </div>
+                <div className="flex flex-col gap-2 flex-1">
                   {queue.slice(queue.findIndex(s => s.id === currentSong.id) + 1).map((song, idx) => {
                     const actualIndex = queue.findIndex(s => s.id === currentSong.id) + 1 + idx;
                     return (
@@ -519,7 +542,7 @@ const FullScreenPlayer = () => {
                 </div>
               </div>
             ) : showLyrics ? (
-              <div className="flex-1 mb-8 bg-black/40 rounded-2xl backdrop-blur-md border border-red-900/30 overflow-hidden relative">
+              <div className="flex-1 mb-8 bg-zinc-900/40 rounded-2xl backdrop-blur-md border border-red-900/30 overflow-hidden relative">
                  <LyricsDisplay />
               </div>
             ) : (
@@ -537,32 +560,86 @@ const FullScreenPlayer = () => {
                 <h2 className="text-2xl font-bold text-white mb-1 truncate">{currentSong.title}</h2>
                 <p className="text-lg text-zinc-400 truncate">{currentSong.artist}</p>
               </div>
-              <button 
-                onClick={() => toggleLike(currentSong)}
-                className={`p-2 transition-colors ${liked ? 'text-red-500' : 'text-white/50 hover:text-white'}`}
-              >
-                <Heart size={28} fill={liked ? "currentColor" : "none"} />
-              </button>
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => {
+                    if (!downloaded && !downloading) {
+                      downloadSong(currentSong);
+                    }
+                  }}
+                  className={`p-2 transition-colors ${downloaded ? 'text-green-500' : downloading ? 'text-zinc-400' : 'text-white/50 hover:text-white'}`}
+                  disabled={downloaded || downloading}
+                >
+                  {downloading ? (
+                    <Loader2 size={28} className="animate-spin" />
+                  ) : downloaded ? (
+                    <CheckCircle2 size={28} />
+                  ) : (
+                    <Download size={28} />
+                  )}
+                </button>
+                <button 
+                  onClick={() => {
+                    if (navigator.share) {
+                      navigator.share({
+                        title: currentSong.title,
+                        text: `Listen to ${currentSong.title} by ${currentSong.artist}`,
+                        url: window.location.href,
+                      }).catch(console.error);
+                    } else {
+                      navigator.clipboard.writeText(`${currentSong.title} by ${currentSong.artist} - ${window.location.href}`);
+                      useNotificationStore.getState().showNotification('Link copied to clipboard');
+                    }
+                  }}
+                  className="p-2 text-white/50 hover:text-white transition-colors"
+                >
+                  <Share2 size={28} />
+                </button>
+                <button 
+                  onClick={() => toggleLike(currentSong)}
+                  className={`p-2 transition-colors ${liked ? 'text-red-500' : 'text-white/50 hover:text-white'}`}
+                >
+                  <Heart size={28} fill={liked ? "currentColor" : "none"} />
+                </button>
+              </div>
             </div>
 
             {/* Progress Bar */}
             <div className="mb-8">
               <div 
-                className="h-1.5 bg-red-900/30 rounded-full overflow-hidden relative cursor-pointer"
-                onClick={(e) => {
+                className="h-3 bg-red-900/30 rounded-full relative cursor-pointer group flex items-center"
+                onPointerDown={(e) => {
                   const bounds = e.currentTarget.getBoundingClientRect();
-                  const x = e.clientX - bounds.left;
-                  const percent = x / bounds.width;
-                  const newTime = percent * duration;
-                  setProgress(newTime);
-                  // Note: To actually seek the audio, we need to expose a seek function from the store or handle it in App.tsx
-                  // For now, we dispatch a custom event that App.tsx can listen to
-                  window.dispatchEvent(new CustomEvent('seek', { detail: newTime }));
+                  const updateProgress = (clientX: number) => {
+                    const x = Math.max(0, Math.min(clientX - bounds.left, bounds.width));
+                    const percent = x / bounds.width;
+                    const newTime = percent * duration;
+                    setProgress(newTime);
+                    window.dispatchEvent(new CustomEvent('seek', { detail: newTime }));
+                  };
+                  
+                  updateProgress(e.clientX);
+                  
+                  const handlePointerMove = (moveEvent: PointerEvent) => {
+                    updateProgress(moveEvent.clientX);
+                  };
+                  
+                  const handlePointerUp = () => {
+                    window.removeEventListener('pointermove', handlePointerMove);
+                    window.removeEventListener('pointerup', handlePointerUp);
+                  };
+                  
+                  window.addEventListener('pointermove', handlePointerMove);
+                  window.addEventListener('pointerup', handlePointerUp);
                 }}
               >
                 <div 
-                  className="absolute top-0 left-0 h-full bg-red-500 rounded-full transition-all duration-100 ease-linear"
+                  className="absolute left-0 h-1.5 bg-red-500 rounded-full pointer-events-none"
                   style={{ width: `${progressPercent}%` }}
+                />
+                <div 
+                  className="absolute h-3 w-3 bg-white rounded-full shadow-md opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none"
+                  style={{ left: `calc(${progressPercent}% - 6px)` }}
                 />
               </div>
               <div className="flex justify-between text-xs text-zinc-500 mt-2 font-mono">
@@ -580,7 +657,7 @@ const FullScreenPlayer = () => {
                 <Shuffle size={24} />
               </button>
               
-              <button onClick={previous} className="p-3 text-white hover:text-red-400 transition-colors">
+              <button onClick={() => { previous(); useNotificationStore.getState().showNotification('Skipped to previous song'); }} className="p-3 text-white hover:text-red-400 transition-colors">
                 <SkipBack size={36} fill="currentColor" />
               </button>
               
@@ -591,7 +668,7 @@ const FullScreenPlayer = () => {
                 {isPlaying ? <Pause size={36} fill="currentColor" /> : <Play size={36} fill="currentColor" className="ml-2" />}
               </button>
               
-              <button onClick={next} className="p-3 text-white hover:text-red-400 transition-colors">
+              <button onClick={() => { next(); useNotificationStore.getState().showNotification('Skipped to next song'); }} className="p-3 text-white hover:text-red-400 transition-colors">
                 <SkipForward size={36} fill="currentColor" />
               </button>
               
@@ -614,6 +691,7 @@ const FullScreenPlayer = () => {
 const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, playlistId?: string }) => {
   const { setCurrentSong, setQueue, currentSong, isPlaying } = usePlayerStore();
   const { addToHistory, playlists, addSongToPlaylist, removeSongFromPlaylist } = useLibraryStore();
+  const { downloadSong, isDownloaded, isDownloading, removeDownload } = useDownloadStore();
   const [showPlaylistsFor, setShowPlaylistsFor] = useState<string | null>(null);
 
   const handlePlay = (song: Song, index: number) => {
@@ -628,6 +706,9 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
       <div className="flex flex-col gap-2 px-4">
         {songs.map((song, idx) => {
           const isCurrent = currentSong?.id === song.id;
+          const downloaded = isDownloaded(song.id);
+          const downloading = isDownloading[song.id];
+
           return (
             <div key={song.id} className="relative">
               <div 
@@ -645,7 +726,7 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
                     </div>
                   )}
                   {isCurrent && isPlaying && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <div className="absolute inset-0 bg-zinc-900/40 flex items-center justify-center">
                       <div className="flex gap-0.5 h-4 items-end">
                         <motion.div animate={{ height: ['20%', '100%', '40%'] }} transition={{ repeat: Infinity, duration: 0.5 }} className="w-1 bg-red-600 rounded-t-sm" />
                         <motion.div animate={{ height: ['60%', '30%', '100%'] }} transition={{ repeat: Infinity, duration: 0.6 }} className="w-1 bg-red-600 rounded-t-sm" />
@@ -662,6 +743,27 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
                 </div>
                 
                 <div className="flex items-center gap-1">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (downloaded) {
+                        removeDownload(song.id);
+                      } else if (!downloading) {
+                        downloadSong(song);
+                      }
+                    }}
+                    className="p-2 text-zinc-400 hover:text-red-400 transition-colors"
+                    title={downloaded ? "Remove Download" : "Download"}
+                  >
+                    {downloading ? (
+                      <Loader2 size={20} className="animate-spin text-red-500" />
+                    ) : downloaded ? (
+                      <CheckCircle2 size={20} className="text-red-500" />
+                    ) : (
+                      <Download size={20} />
+                    )}
+                  </button>
+
                   {playlistId ? (
                     <button 
                       onClick={(e) => {
@@ -680,9 +782,9 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
                         setShowPlaylistsFor(showPlaylistsFor === song.id ? null : song.id);
                       }}
                       className="p-2 text-zinc-400 hover:text-red-400 transition-colors"
-                      title="Add to Playlist"
+                      title="More Options"
                     >
-                      <Plus size={20} />
+                      <MoreVertical size={20} />
                     </button>
                   )}
                 </div>
@@ -691,6 +793,18 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
               {/* Playlist Selection Dropdown */}
               {showPlaylistsFor === song.id && (
                 <div className="absolute right-0 top-full mt-2 w-48 bg-zinc-900 border border-zinc-800 rounded-xl shadow-xl z-20 py-2 overflow-hidden">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      usePlayerStore.getState().addToQueue(song);
+                      useNotificationStore.getState().showNotification(`Added "${song.title}" to queue`);
+                      setShowPlaylistsFor(null);
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-white hover:bg-zinc-800 transition-colors"
+                  >
+                    Add to Queue
+                  </button>
+                  <div className="h-px bg-zinc-800 my-1" />
                   <div className="px-3 py-1 text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Add to Playlist</div>
                   {playlists.length === 0 ? (
                     <div className="px-4 py-2 text-sm text-zinc-400">No playlists yet</div>
@@ -701,6 +815,7 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
                         onClick={(e) => {
                           e.stopPropagation();
                           addSongToPlaylist(p.id, song);
+                          useNotificationStore.getState().showNotification(`Added to "${p.name}"`);
                           setShowPlaylistsFor(null);
                         }}
                         className="w-full text-left px-4 py-2 text-sm text-white hover:bg-zinc-800 transition-colors"
@@ -721,14 +836,14 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
 
 const AppLogo = () => (
   <div className="flex items-center gap-4 mb-2">
-    <div className="relative flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-950 border border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.4)] overflow-hidden group">
+    <div className="relative flex items-center justify-center w-14 h-14 rounded-2xl bg-zinc-900 border border-red-500/30 shadow-[0_0_30px_rgba(239,68,68,0.4)] overflow-hidden group">
       <div className="absolute inset-0 bg-red-500/20 blur-xl group-hover:bg-red-500/40 transition-colors duration-500" />
       <motion.div 
         animate={{ rotate: 360 }} 
         transition={{ repeat: Infinity, duration: 10, ease: "linear" }}
         className="absolute w-[200%] h-[200%] bg-[conic-gradient(from_0deg,transparent_0_300deg,rgba(239,68,68,0.5)_360deg)] opacity-50"
       />
-      <div className="absolute inset-[2px] bg-zinc-950 rounded-[14px] flex items-center justify-center">
+      <div className="absolute inset-[2px] bg-zinc-900 rounded-[14px] flex items-center justify-center">
         <ListMusic className="text-red-500 relative z-10 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]" size={28} />
       </div>
     </div>
@@ -744,21 +859,25 @@ const AppLogo = () => (
 const HomeView = () => {
   const [trending, setTrending] = useState<Song[]>([]);
   const [newReleases, setNewReleases] = useState<Song[]>([]);
+  const [recommendations, setRecommendations] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
+  const { history, likedSongs } = useLibraryStore();
 
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      const [trendData, newData] = await Promise.all([
+      const [trendData, newData, recData] = await Promise.all([
         fetchTamilMusic('tamil hit songs', 10),
-        fetchTamilMusic('latest tamil songs 2024', 10)
+        fetchTamilMusic('latest tamil songs 2024', 10),
+        fetchRecommendations(history, likedSongs)
       ]);
       setTrending(trendData);
       setNewReleases(newData);
+      setRecommendations(recData);
       setLoading(false);
     };
     loadData();
-  }, []);
+  }, [history, likedSongs]);
 
   if (loading) {
     return <div className="flex-1 flex items-center justify-center text-zinc-500">Loading Tamil Hits...</div>;
@@ -796,7 +915,7 @@ const HomeView = () => {
                 <ListMusic size={32} />
               </div>
             )}
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent flex flex-col justify-end p-4">
+            <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/80 via-zinc-900/20 to-transparent flex flex-col justify-end p-4">
               <h3 className="text-white font-bold truncate">{song.title}</h3>
               <p className="text-zinc-300 text-sm truncate">{song.artist}</p>
             </div>
@@ -804,6 +923,9 @@ const HomeView = () => {
         ))}
       </div>
 
+      {recommendations.length > 0 && (
+        <SongList title="Recommended for You" songs={recommendations} />
+      )}
       <SongList title="Trending Now" songs={trending} />
       <SongList title="New Releases" songs={newReleases} />
     </motion.div>
@@ -814,6 +936,41 @@ const SearchView = () => {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<Song[]>([]);
   const [loading, setLoading] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<string[]>([]);
+  const [isFocused, setIsFocused] = useState(false);
+  const [recommendations, setRecommendations] = useState<Song[]>([]);
+  const { history, likedSongs } = useLibraryStore();
+
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('music_search_history');
+    if (savedHistory) {
+      try {
+        setSearchHistory(JSON.parse(savedHistory));
+      } catch (e) {
+        console.error('Failed to parse search history', e);
+      }
+    }
+    
+    const loadRecommendations = async () => {
+      const recs = await fetchRecommendations(history, likedSongs);
+      setRecommendations(recs.slice(0, 10));
+    };
+    loadRecommendations();
+  }, [history, likedSongs]);
+
+  const saveSearchToHistory = (searchTerm: string) => {
+    if (!searchTerm.trim()) return;
+    const newHistory = [searchTerm, ...searchHistory.filter(item => item !== searchTerm)].slice(0, 5);
+    setSearchHistory(newHistory);
+    localStorage.setItem('music_search_history', JSON.stringify(newHistory));
+  };
+
+  const removeHistoryItem = (e: React.MouseEvent, itemToRemove: string) => {
+    e.stopPropagation();
+    const newHistory = searchHistory.filter(item => item !== itemToRemove);
+    setSearchHistory(newHistory);
+    localStorage.setItem('music_search_history', JSON.stringify(newHistory));
+  };
 
   useEffect(() => {
     const search = async () => {
@@ -825,6 +982,11 @@ const SearchView = () => {
       const data = await fetchTamilMusic(`tamil ${query}`, 50);
       setResults(data);
       setLoading(false);
+      
+      // Save to history when results are found
+      if (data.length > 0) {
+        saveSearchToHistory(query);
+      }
     };
 
     const debounce = setTimeout(search, 500);
@@ -839,7 +1001,7 @@ const SearchView = () => {
       transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
       className="flex-1 flex flex-col pt-12 pb-32"
     >
-      <div className="px-4 mb-6 sticky top-0 z-10 bg-black/80 backdrop-blur-md py-4">
+      <div className="px-4 mb-6 sticky top-0 z-10 bg-zinc-900/80 backdrop-blur-md py-4">
         <h1 className="text-3xl font-bold text-red-500 mb-4">Search</h1>
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-400" size={20} />
@@ -848,32 +1010,77 @@ const SearchView = () => {
             placeholder="Artists, songs, or podcasts"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setTimeout(() => setIsFocused(false), 200)}
             className="w-full bg-zinc-900/50 border border-red-900/30 text-white rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
           />
         </div>
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {loading ? (
+        {isFocused && query.length < 3 && searchHistory.length > 0 ? (
+          <div className="px-4 mb-6">
+            <div className="flex justify-between items-center mb-3">
+              <h3 className="text-sm font-semibold text-zinc-400">Recent Searches</h3>
+              <button 
+                onClick={() => {
+                  setSearchHistory([]);
+                  localStorage.removeItem('music_search_history');
+                }}
+                className="text-xs text-red-500 hover:text-red-400 font-medium"
+              >
+                Clear All
+              </button>
+            </div>
+            <div className="flex flex-col gap-2">
+              {searchHistory.map((item, idx) => (
+                <div 
+                  key={idx} 
+                  onClick={() => setQuery(item)}
+                  className="flex items-center justify-between p-3 bg-zinc-900/40 rounded-lg cursor-pointer hover:bg-zinc-800 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Search size={16} className="text-zinc-500" />
+                    <span className="text-white text-sm">{item}</span>
+                  </div>
+                  <button 
+                    onClick={(e) => removeHistoryItem(e, item)}
+                    className="p-1 text-zinc-500 hover:text-red-400 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : loading ? (
           <div className="text-center text-zinc-500 mt-10">Searching...</div>
         ) : results.length > 0 ? (
           <SongList title="Top Results" songs={results} />
         ) : query.length >= 3 ? (
           <div className="text-center text-zinc-500 mt-10">No results found for "{query}"</div>
         ) : (
-          <div className="px-4 grid grid-cols-2 gap-4">
-            {/* Browse Categories */}
-            {['Kollywood', 'Indie', 'Devotional', 'Folk'].map((cat, i) => (
-              <div 
-                key={cat} 
-                onClick={() => setQuery(cat)}
-                className={`aspect-video rounded-xl p-4 flex items-end cursor-pointer ${
-                  ['bg-purple-600', 'bg-blue-600', 'bg-orange-600', 'bg-red-600'][i]
-                }`}
-              >
-                <span className="text-white font-bold">{cat}</span>
+          <div className="flex flex-col gap-8 pb-8">
+            <div className="px-4">
+              <h3 className="text-sm font-semibold text-zinc-400 mb-3">Browse Categories</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {['Kollywood', 'Indie', 'Devotional', 'Folk'].map((cat, i) => (
+                  <div 
+                    key={cat} 
+                    onClick={() => setQuery(cat)}
+                    className={`aspect-video rounded-xl p-4 flex items-end cursor-pointer hover:scale-105 transition-transform ${
+                      ['bg-purple-600', 'bg-blue-600', 'bg-orange-600', 'bg-red-600'][i]
+                    }`}
+                  >
+                    <span className="text-white font-bold">{cat}</span>
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            
+            {recommendations.length > 0 && (
+              <SongList title="Recommended for You" songs={recommendations} />
+            )}
           </div>
         )}
       </div>
@@ -883,7 +1090,8 @@ const SearchView = () => {
 
 const LibraryView = () => {
   const { likedSongs, history, playlists, createPlaylist, deletePlaylist } = useLibraryStore();
-  const [activeTab, setActiveTab] = useState<'liked' | 'history' | 'playlists'>('playlists');
+  const { downloadedSongs } = useDownloadStore();
+  const [activeTab, setActiveTab] = useState<'liked' | 'history' | 'playlists' | 'downloads'>('playlists');
   const [isCreating, setIsCreating] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
   const [viewingPlaylistId, setViewingPlaylistId] = useState<string | null>(null);
@@ -953,6 +1161,12 @@ const LibraryView = () => {
           >
             Recently Played
           </button>
+          <button 
+            onClick={() => setActiveTab('downloads')}
+            className={`text-lg font-medium transition-colors whitespace-nowrap ${activeTab === 'downloads' ? 'text-white border-b-2 border-red-500' : 'text-zinc-500'}`}
+          >
+            Downloads
+          </button>
         </div>
       </div>
 
@@ -974,7 +1188,7 @@ const LibraryView = () => {
                   placeholder="Playlist Name"
                   value={newPlaylistName}
                   onChange={(e) => setNewPlaylistName(e.target.value)}
-                  className="w-full bg-black/50 border border-zinc-800 text-white rounded-lg py-2 px-3 focus:outline-none focus:border-red-500 mb-3"
+                  className="w-full bg-zinc-900/50 border border-zinc-800 text-white rounded-lg py-2 px-3 focus:outline-none focus:border-red-500 mb-3"
                   autoFocus
                 />
                 <div className="flex justify-end gap-2">
@@ -1018,7 +1232,7 @@ const LibraryView = () => {
                       e.stopPropagation();
                       deletePlaylist(playlist.id);
                     }}
-                    className="absolute top-2 right-2 p-2 bg-black/60 rounded-full text-zinc-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
+                    className="absolute top-2 right-2 p-2 bg-zinc-900/60 rounded-full text-zinc-400 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"
                   >
                     <X size={16} />
                   </button>
@@ -1035,6 +1249,12 @@ const LibraryView = () => {
           ) : (
             <div className="text-center text-zinc-500 mt-10">No liked songs yet.</div>
           )
+        ) : activeTab === 'downloads' ? (
+          Object.values(downloadedSongs).length > 0 ? (
+            <SongList title={`${Object.values(downloadedSongs).length} downloaded songs`} songs={Object.values(downloadedSongs)} />
+          ) : (
+            <div className="text-center text-zinc-500 mt-10">No downloaded songs yet.</div>
+          )
         ) : (
           history.length > 0 ? (
             <SongList title="Recent" songs={history} />
@@ -1048,8 +1268,7 @@ const LibraryView = () => {
 };
 
 const ProfileView = () => {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, isLoading } = useAuthStore();
   const [authMode, setAuthMode] = useState<'login' | 'signup'>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -1057,80 +1276,27 @@ const ProfileView = () => {
   const [authError, setAuthError] = useState('');
   const [authLoading, setAuthLoading] = useState(false);
 
-  useEffect(() => {
-    const fetchUser = async () => {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data.user);
-        }
-      } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchUser();
-  }, []);
-
   const handleGoogleLogin = async () => {
     try {
-      const res = await fetch('/api/auth/url');
-      const { url } = await res.json();
-      
-      const authWindow = window.open(url, 'oauth_popup', 'width=600,height=700');
-      
-      if (!authWindow) {
-        alert('Please allow popups to sign in with Google');
-      }
-    } catch (err) {
-      console.error('Failed to get login URL', err);
+      setAuthError('');
+      await signInWithGoogle();
+    } catch (err: any) {
+      console.error('Failed to login with Google', err);
+      setAuthError(err.message || 'Failed to sign in with Google');
     }
   };
 
   const handleEmailAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    setAuthError('');
-    setAuthLoading(true);
-
-    try {
-      const endpoint = authMode === 'login' ? '/api/auth/login' : '/api/auth/signup';
-      const body = authMode === 'login' ? { email, password } : { name, email, password };
-
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data.error || 'Authentication failed');
-      }
-
-      setUser(data.user);
-    } catch (err: any) {
-      setAuthError(err.message);
-    } finally {
-      setAuthLoading(false);
-    }
+    setAuthError('Email authentication is currently disabled. Please use Google Sign-In.');
   };
 
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-      if (event.data?.type === 'OAUTH_AUTH_SUCCESS') {
-        window.location.reload();
-      }
-    };
-    window.addEventListener('message', handleMessage);
-    return () => window.removeEventListener('message', handleMessage);
-  }, []);
-
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    setUser(null);
+    try {
+      await logOut();
+    } catch (err) {
+      console.error('Failed to log out', err);
+    }
   };
 
   return (
@@ -1143,18 +1309,18 @@ const ProfileView = () => {
     >
       <h1 className="text-3xl font-bold text-red-500 mb-8">Profile</h1>
       
-      {loading ? (
+      {isLoading ? (
         <div className="text-center text-zinc-500 mt-10">Loading...</div>
       ) : user ? (
         <div className="flex flex-col items-center mt-10">
-          {user.picture ? (
-            <img src={user.picture} alt={user.name} className="w-24 h-24 rounded-full border-2 border-red-500 mb-4 object-cover" loading="lazy" />
+          {user.photoURL ? (
+            <img src={user.photoURL} alt={user.displayName || 'User'} className="w-24 h-24 rounded-full border-2 border-red-500 mb-4 object-cover" loading="lazy" />
           ) : (
             <div className="w-24 h-24 rounded-full border-2 border-red-500 mb-4 bg-zinc-800 flex items-center justify-center text-zinc-500">
               <User size={40} />
             </div>
           )}
-          <h2 className="text-2xl font-bold text-white mb-1">{user.name}</h2>
+          <h2 className="text-2xl font-bold text-white mb-1">{user.displayName || 'User'}</h2>
           <p className="text-zinc-400 mb-8">{user.email}</p>
           
           <div className="w-full bg-zinc-900/50 rounded-2xl p-4 border border-red-900/30 mb-8">
@@ -1290,7 +1456,21 @@ const socket = io();
 export default function App() {
   const [activeTab, setActiveTab] = useState('home');
   const { currentSong, isPlaying, setProgress, setDuration, next, jamId, setJamSession, syncJamState } = usePlayerStore();
+  const { setUser, setIsLoading } = useAuthStore();
   const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    if (!auth) {
+      setIsLoading(false);
+      return;
+    }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setUser(user);
+      setIsLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [setUser, setIsLoading]);
 
   // Socket.io Jam Session Logic
   useEffect(() => {
@@ -1361,14 +1541,48 @@ export default function App() {
       audioRef.current = new Audio();
       
       audioRef.current.addEventListener('timeupdate', () => {
-        if (audioRef.current) setProgress(audioRef.current.currentTime);
+        if (audioRef.current) {
+          setProgress(audioRef.current.currentTime);
+          if ('mediaSession' in navigator && !isNaN(audioRef.current.duration)) {
+            try {
+              navigator.mediaSession.setPositionState({
+                duration: audioRef.current.duration,
+                playbackRate: audioRef.current.playbackRate,
+                position: audioRef.current.currentTime
+              });
+            } catch (e) {
+              // Ignore errors if position state is invalid
+            }
+          }
+        }
       });
       
       audioRef.current.addEventListener('loadedmetadata', () => {
         if (audioRef.current) setDuration(audioRef.current.duration);
       });
 
-      audioRef.current.addEventListener('ended', () => {
+      audioRef.current.addEventListener('ended', async () => {
+        const { currentSong, queue, isRepeat, isShuffle, next, setQueue } = usePlayerStore.getState();
+        
+        if (!isRepeat && !isShuffle && currentSong) {
+          const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
+          if (currentIndex === queue.length - 1) {
+            // Reached the end of the queue, fetch similar songs
+            useNotificationStore.getState().showNotification('Fetching similar songs for auto-play...');
+            try {
+              const artist = currentSong.artist.split(',')[0].trim();
+              const similarSongs = await fetchTamilMusic(`tamil ${artist}`, 10);
+              const newSongs = similarSongs.filter(s => !queue.find(qs => qs.id === s.id));
+              
+              if (newSongs.length > 0) {
+                setQueue([...queue, ...newSongs]);
+                useNotificationStore.getState().showNotification('Added similar songs to queue');
+              }
+            } catch (error) {
+              console.error('Failed to fetch similar songs', error);
+            }
+          }
+        }
         next();
       });
 
@@ -1407,13 +1621,58 @@ export default function App() {
       } else {
         audioRef.current.pause();
       }
+
+      // Update Media Session API for lock screen / notification controls
+      if ('mediaSession' in navigator) {
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: currentSong.title,
+          artist: currentSong.artist,
+          album: currentSong.album,
+          artwork: [
+            { src: currentSong.artworkUrl || 'https://picsum.photos/seed/music/512/512', sizes: '512x512', type: 'image/jpeg' }
+          ]
+        });
+
+        navigator.mediaSession.setActionHandler('play', () => {
+          usePlayerStore.getState().play();
+        });
+        navigator.mediaSession.setActionHandler('pause', () => {
+          usePlayerStore.getState().pause();
+        });
+        navigator.mediaSession.setActionHandler('previoustrack', () => {
+          usePlayerStore.getState().previous();
+          useNotificationStore.getState().showNotification('Skipped to previous song');
+        });
+        navigator.mediaSession.setActionHandler('nexttrack', () => {
+          usePlayerStore.getState().next();
+          useNotificationStore.getState().showNotification('Skipped to next song');
+        });
+        navigator.mediaSession.setActionHandler('seekto', (details) => {
+          if (details.fastSeek && 'fastSeek' in audioRef.current!) {
+            audioRef.current!.fastSeek(details.seekTime || 0);
+            return;
+          }
+          audioRef.current!.currentTime = details.seekTime || 0;
+          usePlayerStore.getState().setProgress(details.seekTime || 0);
+        });
+        navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+          const skipTime = details.seekOffset || 10;
+          audioRef.current!.currentTime = Math.max(audioRef.current!.currentTime - skipTime, 0);
+        });
+        navigator.mediaSession.setActionHandler('seekforward', (details) => {
+          const skipTime = details.seekOffset || 10;
+          audioRef.current!.currentTime = Math.min(audioRef.current!.currentTime + skipTime, audioRef.current!.duration);
+        });
+      }
     }
   }, [currentSong, isPlaying]);
 
+  const { message } = useNotificationStore();
+
   return (
-    <div className="bg-zinc-950 min-h-screen text-white font-sans flex flex-col max-w-md mx-auto relative overflow-hidden shadow-2xl">
+    <div className="bg-zinc-900 min-h-screen text-white font-sans flex flex-col max-w-md mx-auto relative overflow-hidden shadow-2xl">
       {/* Subtle Red Gradient Background */}
-      <div className="absolute inset-0 bg-gradient-to-br from-red-950/40 via-zinc-900/80 to-zinc-950 pointer-events-none" />
+      <div className="absolute inset-0 bg-gradient-to-br from-red-950/40 via-zinc-900/80 to-zinc-900 pointer-events-none" />
       
       {/* Main Content Area */}
       <AnimatePresence mode="wait">
@@ -1427,6 +1686,20 @@ export default function App() {
       <MiniPlayer />
       <FullScreenPlayer />
       <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+      
+      {/* Toast Notification */}
+      <AnimatePresence>
+        {message && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zinc-800 text-white px-4 py-2 rounded-full shadow-lg z-50 text-sm font-medium whitespace-nowrap"
+          >
+            {message}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
