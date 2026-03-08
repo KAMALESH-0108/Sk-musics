@@ -20,11 +20,9 @@ export const useLyrics = (trackName?: string, artistName?: string) => {
       setIsLoading(true);
       setError(null);
       try {
-        const response = await fetch(
-          `https://lrclib.net/api/search?track_name=${encodeURIComponent(
-            trackName
-          )}&artist_name=${encodeURIComponent(artistName)}`
-        );
+        const targetUrl = `https://lrclib.net/api/search?track_name=${encodeURIComponent(trackName)}&artist_name=${encodeURIComponent(artistName)}`;
+        const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
+        const response = await fetch(proxyUrl);
         
         if (!response.ok) {
           throw new Error('Failed to fetch lyrics');
@@ -74,23 +72,37 @@ function parseLrc(lrcString: string): LyricLine[] {
   const lines = lrcString.split('\n');
   const parsedLines: LyricLine[] = [];
 
-  const timeRegex = /\[(\d{2}):(\d{2})\.(\d{2,3})\]/;
+  // Match one or more timestamps at the beginning of the line
+  const timeRegex = /\[(\d{2,}):(\d{2})(?:\.(\d{1,3}))?\]/g;
 
   for (const line of lines) {
-    const match = timeRegex.exec(line);
-    if (match) {
+    let match;
+    const timestamps: number[] = [];
+    
+    // Extract all timestamps from the line
+    while ((match = timeRegex.exec(line)) !== null) {
       const minutes = parseInt(match[1], 10);
       const seconds = parseInt(match[2], 10);
-      const milliseconds = parseInt(match[3], 10) * (match[3].length === 2 ? 10 : 1);
+      const msStr = match[3] || '0';
+      // Pad or truncate milliseconds to 3 digits
+      const ms = parseInt(msStr.padEnd(3, '0').substring(0, 3), 10);
       
-      const timeInSeconds = minutes * 60 + seconds + milliseconds / 1000;
-      const text = line.replace(timeRegex, '').trim();
+      const timeInSeconds = minutes * 60 + seconds + ms / 1000;
+      timestamps.push(timeInSeconds);
+    }
+
+    if (timestamps.length > 0) {
+      // Remove all timestamps to get the text
+      const text = line.replace(/\[\d{2,}:\d{2}(?:\.\d{1,3})?\]/g, '').trim();
       
       if (text) {
-        parsedLines.push({ time: timeInSeconds, text });
+        for (const time of timestamps) {
+          parsedLines.push({ time, text });
+        }
       }
     }
   }
 
-  return parsedLines;
+  // Sort by time since multiple timestamps can put lines out of order
+  return parsedLines.sort((a, b) => a.time - b.time);
 }

@@ -38,6 +38,7 @@ interface PlayerState {
   addToQueue: (song: Song) => void;
   removeFromQueue: (index: number) => void;
   shuffleQueue: () => void;
+  reorderUpcomingQueue: (newUpcomingQueue: Song[]) => void;
   setJamSession: (jamId: string | null, users?: any[]) => void;
   syncJamState: (state: Partial<PlayerState>) => void;
 }
@@ -124,6 +125,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     }
     
     return { queue: [...playedSongs, ...remainingSongs] };
+  }),
+  reorderUpcomingQueue: (newUpcomingQueue) => set((state) => {
+    if (!state.currentSong) return state;
+    const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+    if (currentIndex === -1) return state;
+    
+    const playedSongs = state.queue.slice(0, currentIndex + 1);
+    return { queue: [...playedSongs, ...newUpcomingQueue] };
   }),
   setJamSession: (jamId, users = []) => set({ jamId, jamUsers: users }),
   syncJamState: (state) => set({ ...state }),

@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, useMotionTemplate } from 'motion/react';
-import { Home, Search, Library, Play, Pause, SkipForward, SkipBack, ChevronDown, Repeat, Shuffle, Heart, ListMusic, Plus, X, Mic2, User, Users, Download, CheckCircle2, Loader2, MoreVertical, Share2, Settings, Bell, Wifi, Shield, LogOut, ChevronRight, Smartphone } from 'lucide-react';
+import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, useMotionTemplate, Reorder, useDragControls } from 'motion/react';
+import { Home, Search, Library, Play, Pause, SkipForward, SkipBack, ChevronDown, Repeat, Shuffle, Heart, ListMusic, Plus, X, Mic2, User, Users, Download, CheckCircle2, Loader2, MoreVertical, Share2, Settings, Bell, Wifi, Shield, LogOut, ChevronRight, Smartphone, GripVertical } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { usePlayerStore, Song } from './store/usePlayerStore';
 import { useLibraryStore } from './store/useLibraryStore';
@@ -11,6 +11,9 @@ import { signInWithGoogle, logOut, auth } from './lib/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { fetchTamilMusic, fetchRecommendations } from './services/api';
 import { LyricsDisplay } from './components/LyricsDisplay';
+import { ArtistProfile } from './components/ArtistProfile';
+import { AlbumProfile } from './components/AlbumProfile';
+import { useNavigationStore } from './store/useNavigationStore';
 
 // --- Components ---
 
@@ -58,6 +61,8 @@ const MiniPlayer = () => {
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 100, opacity: 0 }}
+      whileHover={{ scale: 1.02, y: -5 }}
+      whileTap={{ scale: 0.98 }}
       className="fixed bottom-[72px] left-2 right-2 z-40"
     >
       <div 
@@ -85,7 +90,51 @@ const MiniPlayer = () => {
         )}
         <div className="flex-1 min-w-0">
           <h4 className="text-sm font-semibold text-white truncate">{currentSong.title}</h4>
-          <p className="text-xs text-zinc-400 truncate">{currentSong.artist}</p>
+          <div className="flex items-center gap-1 text-xs text-zinc-400 truncate">
+            <p 
+              className="hover:text-white transition-colors cursor-pointer truncate"
+              onClick={async (e) => {
+                e.stopPropagation();
+                const artists = currentSong.artist.split(',');
+                if (artists.length > 0) {
+                  const artistName = artists[0].trim();
+                  try {
+                    const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`)}`).then(res => res.json());
+                    if (results.data && results.data.results && results.data.results.length > 0) {
+                      useNavigationStore.getState().setSelectedArtistId(results.data.results[0].id);
+                      setPlayerOpen(false);
+                    }
+                  } catch (err) {
+                    console.error("Failed to find artist", err);
+                  }
+                }
+              }}
+            >
+              {currentSong.artist}
+            </p>
+            {currentSong.album && (
+              <>
+                <span className="text-zinc-600">•</span>
+                <p 
+                  className="hover:text-white transition-colors cursor-pointer truncate"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${currentSong.album}`)}`).then(res => res.json());
+                      if (results.data && results.data.results && results.data.results.length > 0) {
+                        useNavigationStore.getState().setSelectedAlbumId(results.data.results[0].id);
+                        setPlayerOpen(false);
+                      }
+                    } catch (err) {
+                      console.error("Failed to find album", err);
+                    }
+                  }}
+                >
+                  {currentSong.album}
+                </p>
+              </>
+            )}
+          </div>
         </div>
         <button 
           onClick={(e) => { e.stopPropagation(); togglePlay(); }}
@@ -314,6 +363,63 @@ const InteractiveAlbumArt = ({ song, isPlaying, onNext, onPrevious }: { song: So
   );
 };
 
+const QueueItem = ({ item, actualIndex, setCurrentSong }: { item: { _key: string, song: Song }, actualIndex: number, setCurrentSong: (song: Song) => void }) => {
+  const dragControls = useDragControls();
+  const { song } = item;
+
+  return (
+    <Reorder.Item 
+      value={item}
+      id={item._key}
+      dragListener={false}
+      dragControls={dragControls}
+      className="relative"
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, x: -100, transition: { duration: 0.2 } }}
+    >
+      <motion.div 
+        drag="x"
+        dragConstraints={{ left: 0, right: 0 }}
+        dragElastic={1}
+        onDragEnd={(e, info) => {
+          if (info.offset.x > 100 || info.offset.x < -100) {
+            usePlayerStore.getState().removeFromQueue(actualIndex);
+          }
+        }}
+        className="flex items-center gap-3 p-2 rounded-lg bg-zinc-900/40 hover:bg-red-900/20 transition-colors"
+      >
+        <div 
+          className="cursor-grab active:cursor-grabbing p-1 text-zinc-500 hover:text-white"
+          onPointerDown={(e) => {
+            e.stopPropagation();
+            dragControls.start(e);
+          }}
+        >
+          <GripVertical size={16} />
+        </div>
+        {song.artworkUrl ? (
+          <img src={song.artworkUrl} className="w-10 h-10 rounded object-cover pointer-events-none" loading="lazy" />
+        ) : (
+          <div className="w-10 h-10 rounded bg-zinc-800 flex items-center justify-center text-zinc-500 pointer-events-none">
+            <ListMusic size={16} />
+          </div>
+        )}
+        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setCurrentSong(song)}>
+          <h4 className="text-sm font-medium text-white truncate">{song.title}</h4>
+          <p className="text-xs text-zinc-400 truncate">{song.artist}</p>
+        </div>
+        <button 
+          onClick={() => usePlayerStore.getState().removeFromQueue(actualIndex)}
+          className="p-2 text-zinc-500 hover:text-white transition-colors"
+        >
+          <X size={18} />
+        </button>
+      </motion.div>
+    </Reorder.Item>
+  );
+};
+
 const FullScreenPlayer = () => {
   const { currentSong, queue, isPlaying, togglePlay, next, previous, isPlayerOpen, setPlayerOpen, progress, duration, setProgress, isShuffle, isRepeat, toggleShuffle, toggleRepeat, setCurrentSong, jamId, jamUsers } = usePlayerStore();
   const { toggleLike, isLiked } = useLibraryStore();
@@ -508,38 +614,33 @@ const FullScreenPlayer = () => {
                     </button>
                   )}
                 </div>
-                <div className="flex flex-col gap-2 flex-1">
-                  {queue.slice(queue.findIndex(s => s.id === currentSong.id) + 1).map((song, idx) => {
-                    const actualIndex = queue.findIndex(s => s.id === currentSong.id) + 1 + idx;
-                    return (
-                      <div key={`${song.id}-${idx}`} className="flex items-center gap-3 p-2 rounded-lg hover:bg-red-900/20 transition-colors">
-                        {song.artworkUrl ? (
-                          <img src={song.artworkUrl} className="w-10 h-10 rounded object-cover" loading="lazy" />
-                        ) : (
-                          <div className="w-10 h-10 rounded bg-zinc-800 flex items-center justify-center text-zinc-500">
-                            <ListMusic size={16} />
-                          </div>
-                        )}
-                        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setCurrentSong(song)}>
-                          <h4 className="text-sm font-medium text-white truncate">{song.title}</h4>
-                          <p className="text-xs text-zinc-400 truncate">{song.artist}</p>
-                        </div>
-                        <button 
-                          onClick={() => usePlayerStore.getState().removeFromQueue(actualIndex)}
-                          className="p-2 text-zinc-500 hover:text-white transition-colors"
-                        >
-                          <X size={18} />
-                        </button>
-                      </div>
-                    )
-                  })}
+                <Reorder.Group 
+                  axis="y" 
+                  values={queue.slice(queue.findIndex(s => s.id === currentSong.id) + 1).map((song, idx) => ({ _key: `${song.id}-${idx}`, song }))} 
+                  onReorder={(newOrder) => usePlayerStore.getState().reorderUpcomingQueue(newOrder.map(item => item.song))}
+                  className="flex flex-col gap-2 flex-1"
+                >
+                  <AnimatePresence>
+                    {queue.slice(queue.findIndex(s => s.id === currentSong.id) + 1).map((song, idx) => {
+                      const actualIndex = queue.findIndex(s => s.id === currentSong.id) + 1 + idx;
+                      const item = { _key: `${song.id}-${idx}`, song };
+                      return (
+                        <QueueItem 
+                          key={item._key} 
+                          item={item} 
+                          actualIndex={actualIndex} 
+                          setCurrentSong={setCurrentSong} 
+                        />
+                      )
+                    })}
+                  </AnimatePresence>
                   {queue.slice(queue.findIndex(s => s.id === currentSong.id) + 1).length === 0 && (
                     <div className="text-center text-zinc-500 mt-10 flex flex-col items-center gap-2">
                       <ListMusic size={32} className="opacity-50" />
                       <p>Queue is empty</p>
                     </div>
                   )}
-                </div>
+                </Reorder.Group>
               </div>
             ) : showLyrics ? (
               <div className="flex-1 mb-8 bg-zinc-900/40 rounded-2xl backdrop-blur-md border border-red-900/30 overflow-hidden relative">
@@ -556,9 +657,53 @@ const FullScreenPlayer = () => {
 
             {/* Song Info */}
             <div className="mb-8 flex justify-between items-end">
-              <div className="flex-1 pr-4">
+              <div className="flex-1 min-w-0 pr-4">
                 <h2 className="text-2xl font-bold text-white mb-1 truncate">{currentSong.title}</h2>
-                <p className="text-lg text-zinc-400 truncate">{currentSong.artist}</p>
+                <div className="flex items-center gap-2 text-lg text-zinc-400 truncate">
+                  <p 
+                    className="hover:text-white transition-colors cursor-pointer truncate"
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const artists = currentSong.artist.split(',');
+                      if (artists.length > 0) {
+                        const artistName = artists[0].trim();
+                        try {
+                          const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`)}`).then(res => res.json());
+                          if (results.data && results.data.results && results.data.results.length > 0) {
+                            useNavigationStore.getState().setSelectedArtistId(results.data.results[0].id);
+                            setPlayerOpen(false);
+                          }
+                        } catch (err) {
+                          console.error("Failed to find artist", err);
+                        }
+                      }
+                    }}
+                  >
+                    {currentSong.artist}
+                  </p>
+                  {currentSong.album && (
+                    <>
+                      <span className="text-zinc-600">•</span>
+                      <p 
+                        className="hover:text-white transition-colors cursor-pointer truncate"
+                        onClick={async (e) => {
+                          e.stopPropagation();
+                          try {
+                            const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${currentSong.album}`)}`).then(res => res.json());
+                            if (results.data && results.data.results && results.data.results.length > 0) {
+                              useNavigationStore.getState().setSelectedAlbumId(results.data.results[0].id);
+                              setPlayerOpen(false);
+                            }
+                          } catch (err) {
+                            console.error("Failed to find album", err);
+                          }
+                        }}
+                      >
+                        {currentSong.album}
+                      </p>
+                    </>
+                  )}
+                </div>
               </div>
               <div className="flex gap-2">
                 <button 
@@ -692,6 +837,7 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
   const { setCurrentSong, setQueue, currentSong, isPlaying } = usePlayerStore();
   const { addToHistory, playlists, addSongToPlaylist, removeSongFromPlaylist } = useLibraryStore();
   const { downloadSong, isDownloaded, isDownloading, removeDownload } = useDownloadStore();
+  const { setSelectedArtistId } = useNavigationStore();
   const [showPlaylistsFor, setShowPlaylistsFor] = useState<string | null>(null);
 
   const handlePlay = (song: Song, index: number) => {
@@ -710,11 +856,11 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
           const downloading = isDownloading[song.id];
 
           return (
-            <div key={song.id} className="relative">
+            <motion.div key={song.id} className="relative" whileHover={{ scale: 1.02, x: 5 }} whileTap={{ scale: 0.98 }}>
               <div 
                 onClick={() => handlePlay(song, idx)}
                 className={`flex items-center gap-4 p-2 rounded-xl transition-colors cursor-pointer ${
-                  isCurrent ? 'bg-red-900/20' : 'hover:bg-red-900/10'
+                  isCurrent ? 'bg-red-900/20 shadow-lg shadow-red-900/10' : 'hover:bg-red-900/10'
                 }`}
               >
                 <div className="relative w-12 h-12 rounded-md overflow-hidden flex-shrink-0 bg-zinc-800">
@@ -739,7 +885,49 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
                   <h4 className={`text-base font-medium truncate ${isCurrent ? 'text-red-500' : 'text-white'}`}>
                     {song.title}
                   </h4>
-                  <p className="text-sm text-zinc-400 truncate">{song.artist}</p>
+                  <div className="flex items-center gap-1 text-sm text-zinc-400 truncate">
+                    <p 
+                      className="hover:text-white transition-colors cursor-pointer truncate"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        const artists = song.artist.split(',');
+                        if (artists.length > 0) {
+                          const artistName = artists[0].trim();
+                          try {
+                            const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`)}`).then(res => res.json());
+                            if (results.data && results.data.results && results.data.results.length > 0) {
+                              setSelectedArtistId(results.data.results[0].id);
+                            }
+                          } catch (err) {
+                            console.error("Failed to find artist", err);
+                          }
+                        }
+                      }}
+                    >
+                      {song.artist}
+                    </p>
+                    {song.album && (
+                      <>
+                        <span className="text-zinc-600">•</span>
+                        <p 
+                          className="hover:text-white transition-colors cursor-pointer truncate"
+                          onClick={async (e) => {
+                            e.stopPropagation();
+                            try {
+                              const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${song.album}`)}`).then(res => res.json());
+                              if (results.data && results.data.results && results.data.results.length > 0) {
+                                useNavigationStore.getState().setSelectedAlbumId(results.data.results[0].id);
+                              }
+                            } catch (err) {
+                              console.error("Failed to find album", err);
+                            }
+                          }}
+                        >
+                          {song.album}
+                        </p>
+                      </>
+                    )}
+                  </div>
                 </div>
                 
                 <div className="flex items-center gap-1">
@@ -826,7 +1014,7 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
                   )}
                 </div>
               )}
-            </div>
+            </motion.div>
           );
         })}
       </div>
@@ -899,14 +1087,17 @@ const HomeView = () => {
       {/* Featured Carousel (Simplified) */}
       <div className="px-4 mb-8 flex gap-4 overflow-x-auto snap-x snap-mandatory hide-scrollbar">
         {trending.slice(0, 5).map((song) => (
-          <div 
+          <motion.div 
             key={song.id} 
             onClick={() => {
               usePlayerStore.getState().setCurrentSong(song);
               usePlayerStore.getState().setQueue(trending);
               useLibraryStore.getState().addToHistory(song);
             }}
-            className="snap-center shrink-0 w-64 aspect-video rounded-2xl overflow-hidden relative cursor-pointer"
+            whileHover={{ scale: 1.05, y: -5 }}
+            whileTap={{ scale: 0.95 }}
+            transition={{ type: "spring", stiffness: 300, damping: 20 }}
+            className="snap-center shrink-0 w-64 aspect-video rounded-2xl overflow-hidden relative cursor-pointer shadow-lg hover:shadow-2xl hover:shadow-red-500/20"
           >
             {song.artworkUrl ? (
               <img src={song.artworkUrl} alt={song.title} className="w-full h-full object-cover" loading="lazy" />
@@ -917,9 +1108,51 @@ const HomeView = () => {
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-zinc-900/80 via-zinc-900/20 to-transparent flex flex-col justify-end p-4">
               <h3 className="text-white font-bold truncate">{song.title}</h3>
-              <p className="text-zinc-300 text-sm truncate">{song.artist}</p>
+              <div className="flex items-center gap-1 text-sm text-zinc-300 truncate">
+                <p 
+                  className="hover:text-white transition-colors cursor-pointer truncate"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const artists = song.artist.split(',');
+                    if (artists.length > 0) {
+                      const artistName = artists[0].trim();
+                      try {
+                        const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`)}`).then(res => res.json());
+                        if (results.data && results.data.results && results.data.results.length > 0) {
+                          useNavigationStore.getState().setSelectedArtistId(results.data.results[0].id);
+                        }
+                      } catch (err) {
+                        console.error("Failed to find artist", err);
+                      }
+                    }
+                  }}
+                >
+                  {song.artist}
+                </p>
+                {song.album && (
+                  <>
+                    <span className="text-zinc-500">•</span>
+                    <p 
+                      className="hover:text-white transition-colors cursor-pointer truncate"
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        try {
+                          const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${song.album}`)}`).then(res => res.json());
+                          if (results.data && results.data.results && results.data.results.length > 0) {
+                            useNavigationStore.getState().setSelectedAlbumId(results.data.results[0].id);
+                          }
+                        } catch (err) {
+                          console.error("Failed to find album", err);
+                        }
+                      }}
+                    >
+                      {song.album}
+                    </p>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+          </motion.div>
         ))}
       </div>
 
@@ -1585,7 +1818,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
 }
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('home');
+  const { activeTab, setActiveTab, selectedArtistId, selectedAlbumId } = useNavigationStore();
   const { currentSong, isPlaying, setProgress, setDuration, next, jamId, setJamSession, syncJamState } = usePlayerStore();
   const { setUser, setIsLoading } = useAuthStore();
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -1818,6 +2051,10 @@ export default function App() {
       </AnimatePresence>
 
       {/* Overlays */}
+      <AnimatePresence>
+        {selectedArtistId && <ArtistProfile key="artist-profile" />}
+        {selectedAlbumId && <AlbumProfile key="album-profile" />}
+      </AnimatePresence>
       <MiniPlayer />
       <FullScreenPlayer />
       <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />

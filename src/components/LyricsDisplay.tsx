@@ -24,20 +24,13 @@ export const LyricsDisplay: React.FC = () => {
     if (isAutoScrolling && activeIndex !== -1 && containerRef.current) {
       const activeElement = containerRef.current.children[activeIndex] as HTMLElement;
       if (activeElement) {
-        // Calculate the scroll position to center the active element
-        const containerHeight = containerRef.current.clientHeight;
-        const elementOffsetTop = activeElement.offsetTop;
-        const elementHeight = activeElement.clientHeight;
-        
-        const scrollPosition = elementOffsetTop - (containerHeight / 2) + (elementHeight / 2);
-        
-        containerRef.current.scrollTo({
-          top: scrollPosition,
+        activeElement.scrollIntoView({
           behavior: 'smooth',
+          block: 'center',
         });
       }
     }
-  }, [activeIndex, lyrics, isAutoScrolling]);
+  }, [activeIndex, isAutoScrolling]);
 
   const handleScroll = () => {
     setIsAutoScrolling(false);
@@ -72,7 +65,7 @@ export const LyricsDisplay: React.FC = () => {
       onWheel={handleScroll}
       onTouchMove={handleScroll}
       onPointerDown={handleScroll}
-      className="h-full overflow-y-auto px-6 py-12 hide-scrollbar space-y-6"
+      className="h-full overflow-y-auto px-6 py-48 hide-scrollbar space-y-6 relative"
       style={{
         maskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)',
         WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)'
@@ -88,6 +81,7 @@ export const LyricsDisplay: React.FC = () => {
             onClick={() => {
               usePlayerStore.getState().setProgress(line.time);
               window.dispatchEvent(new CustomEvent('seek', { detail: line.time }));
+              setIsAutoScrolling(true);
             }}
             initial={{ opacity: 0, y: 10 }}
             animate={{ 
