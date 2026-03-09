@@ -10,14 +10,16 @@ export const LyricsDisplay: React.FC = () => {
   const [isAutoScrolling, setIsAutoScrolling] = useState(true);
   const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
+  const isSynced = lyrics.length > 0 && lyrics[0].time >= 0;
+
   // Find the currently active lyric line
-  const activeIndex = lyrics.findIndex((line, index) => {
+  const activeIndex = isSynced ? lyrics.findIndex((line, index) => {
     const nextLine = lyrics[index + 1];
     if (nextLine) {
       return progress >= line.time && progress < nextLine.time;
     }
     return progress >= line.time;
-  });
+  }) : -1;
 
   // Auto-scroll to the active lyric
   useEffect(() => {
@@ -30,10 +32,17 @@ export const LyricsDisplay: React.FC = () => {
         const containerHalfHeight = container.clientHeight / 2;
         const elementHalfHeight = activeElement.clientHeight / 2;
         
-        container.scrollTo({
-          top: elementOffset - containerHalfHeight + elementHalfHeight,
-          behavior: 'smooth'
-        });
+        const targetScroll = elementOffset - containerHalfHeight + elementHalfHeight;
+        
+        // Use scrollTop for maximum compatibility with older WebViews
+        try {
+          container.scrollTo({
+            top: targetScroll,
+            behavior: 'smooth'
+          });
+        } catch (e) {
+          container.scrollTop = targetScroll;
+        }
       }
     }
   }, [activeIndex, isAutoScrolling]);
@@ -71,33 +80,35 @@ export const LyricsDisplay: React.FC = () => {
       onWheel={handleUserInteraction}
       onTouchStart={handleUserInteraction}
       onTouchMove={handleUserInteraction}
-      className="h-full overflow-y-auto px-6 py-48 hide-scrollbar space-y-6 relative"
+      className="h-full overflow-y-auto px-6 py-48 hide-scrollbar space-y-6 relative scroll-smooth"
       style={{
         maskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)',
         WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)'
       }}
     >
       {lyrics.map((line, index) => {
-        const isActive = index === activeIndex;
-        const isPast = index < activeIndex;
+        const isActive = isSynced ? index === activeIndex : true;
+        const isPast = isSynced ? index < activeIndex : false;
         
         return (
           <motion.div
             key={index}
             onClick={() => {
-              usePlayerStore.getState().setProgress(line.time);
-              window.dispatchEvent(new CustomEvent('seek', { detail: line.time }));
-              setIsAutoScrolling(true);
+              if (isSynced) {
+                usePlayerStore.getState().setProgress(line.time);
+                window.dispatchEvent(new CustomEvent('seek', { detail: line.time }));
+                setIsAutoScrolling(true);
+              }
             }}
             initial={{ opacity: 0, y: 10 }}
             animate={{ 
               opacity: isActive ? 1 : isPast ? 0.4 : 0.2,
-              scale: isActive ? 1.05 : 1,
+              scale: isSynced && isActive ? 1.05 : 1,
               y: 0
             }}
             transition={{ duration: 0.3 }}
-            className={`text-2xl font-bold transition-colors duration-300 cursor-pointer hover:text-red-400 ${
-              isActive ? 'text-red-500' : 'text-white/60'
+            className={`text-2xl font-bold transition-colors duration-300 ${isSynced ? 'cursor-pointer hover:text-red-400' : ''} ${
+              isSynced && isActive ? 'text-red-500' : 'text-white/80'
             }`}
           >
             {line.text}

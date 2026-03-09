@@ -40,7 +40,7 @@ export const useLyrics = (trackName?: string, artistName?: string) => {
           } else if (data[0].plainLyrics) {
              // Fallback to plain lyrics, just split by newline and give them fake times or 0
              const plainLines = data[0].plainLyrics.split('\n').map((line: string) => ({
-                time: 0,
+                time: -1,
                 text: line
              }));
              setLyrics(plainLines);
