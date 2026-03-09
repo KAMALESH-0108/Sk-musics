@@ -5,7 +5,7 @@ const JIOSAAVN_API_BASE = 'https://jiosaavn-api-privatecvc2.vercel.app/search/so
 export const fetchTamilMusic = async (query: string = 'tamil', limit: number = 20): Promise<Song[]> => {
   try {
     const targetUrl = `${JIOSAAVN_API_BASE}?query=${encodeURIComponent(query)}&limit=${limit}`;
-    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
+    const proxyUrl = targetUrl;
     const response = await fetch(proxyUrl);
     const json = await response.json();
     
@@ -87,7 +87,7 @@ export interface ArtistDetails {
 export const fetchArtistDetails = async (artistId: string): Promise<ArtistDetails | null> => {
   try {
     const targetUrl = `https://jiosaavn-api-privatecvc2.vercel.app/artists?id=${artistId}`;
-    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
+    const proxyUrl = targetUrl;
     const response = await fetch(proxyUrl);
     const json = await response.json();
     
@@ -121,7 +121,7 @@ export const fetchArtistDetails = async (artistId: string): Promise<ArtistDetail
 export const fetchArtistSongs = async (artistId: string, page: number = 1): Promise<Song[]> => {
   try {
     const targetUrl = `https://jiosaavn-api-privatecvc2.vercel.app/artists/${artistId}/songs?page=${page}`;
-    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
+    const proxyUrl = targetUrl;
     const response = await fetch(proxyUrl);
     const json = await response.json();
     
@@ -156,7 +156,7 @@ export const fetchArtistSongs = async (artistId: string, page: number = 1): Prom
 export const fetchArtistAlbums = async (artistId: string, page: number = 1): Promise<any[]> => {
   try {
     const targetUrl = `https://jiosaavn-api-privatecvc2.vercel.app/artists/${artistId}/albums?page=${page}`;
-    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
+    const proxyUrl = targetUrl;
     const response = await fetch(proxyUrl);
     const json = await response.json();
     
@@ -185,7 +185,7 @@ export const fetchArtistAlbums = async (artistId: string, page: number = 1): Pro
 export const fetchAlbumDetails = async (albumId: string): Promise<any> => {
   try {
     const targetUrl = `https://jiosaavn-api-privatecvc2.vercel.app/albums?id=${albumId}`;
-    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
+    const proxyUrl = targetUrl;
     const response = await fetch(proxyUrl);
     const json = await response.json();
     
@@ -235,7 +235,7 @@ export const fetchAlbumDetails = async (albumId: string): Promise<any> => {
 export const searchArtists = async (query: string): Promise<any[]> => {
   try {
     const targetUrl = `https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${encodeURIComponent(query)}`;
-    const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
+    const proxyUrl = targetUrl;
     const response = await fetch(proxyUrl);
     const json = await response.json();
     

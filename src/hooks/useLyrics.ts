@@ -72,10 +72,9 @@ function parseLrc(lrcString: string): LyricLine[] {
   const lines = lrcString.split('\n');
   const parsedLines: LyricLine[] = [];
 
-  // Match one or more timestamps at the beginning of the line
-  const timeRegex = /\[(\d{2,}):(\d{2})(?:\.(\d{1,3}))?\]/g;
-
   for (const line of lines) {
+    // Match one or more timestamps at the beginning of the line
+    const timeRegex = /\[(\d{2,}):(\d{2})(?:\.(\d{1,3}))?\]/g;
     let match;
     const timestamps: number[] = [];
     

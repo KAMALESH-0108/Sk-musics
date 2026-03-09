@@ -40,7 +40,7 @@ export const AlbumProfile = () => {
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+        className="absolute inset-0 z-50 bg-black flex items-center justify-center"
       >
         <Loader2 size={48} className="text-red-500 animate-spin" />
       </motion.div>
@@ -53,7 +53,7 @@ export const AlbumProfile = () => {
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center text-white"
+        className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center text-white"
       >
         <p>Album not found</p>
         <button onClick={() => setSelectedAlbumId(null)} className="mt-4 px-4 py-2 bg-zinc-800 rounded-full">Go Back</button>
@@ -80,7 +80,7 @@ export const AlbumProfile = () => {
       initial={{ opacity: 0, y: 50 }} 
       animate={{ opacity: 1, y: 0 }} 
       exit={{ opacity: 0, y: 50 }}
-      className="fixed inset-0 z-50 bg-black overflow-y-auto pb-24"
+      className="absolute inset-0 z-50 bg-black overflow-y-auto pb-24"
     >
       {/* Header Image */}
       <div className="relative h-72 md:h-96 w-full">

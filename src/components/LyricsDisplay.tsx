@@ -23,24 +23,30 @@ export const LyricsDisplay: React.FC = () => {
   useEffect(() => {
     if (isAutoScrolling && activeIndex !== -1 && containerRef.current) {
       const activeElement = containerRef.current.children[activeIndex] as HTMLElement;
-      if (activeElement) {
-        activeElement.scrollIntoView({
-          behavior: 'smooth',
-          block: 'center',
+      const container = containerRef.current;
+      
+      if (activeElement && container) {
+        const elementOffset = activeElement.offsetTop;
+        const containerHalfHeight = container.clientHeight / 2;
+        const elementHalfHeight = activeElement.clientHeight / 2;
+        
+        container.scrollTo({
+          top: elementOffset - containerHalfHeight + elementHalfHeight,
+          behavior: 'smooth'
         });
       }
     }
   }, [activeIndex, isAutoScrolling]);
 
-  const handleScroll = () => {
+  const handleUserInteraction = () => {
     setIsAutoScrolling(false);
     if (scrollTimeoutRef.current) {
       clearTimeout(scrollTimeoutRef.current);
     }
-    // Resume auto-scroll after 3 seconds of no scrolling
+    // Resume auto-scroll after 4 seconds of no interaction
     scrollTimeoutRef.current = setTimeout(() => {
       setIsAutoScrolling(true);
-    }, 3000);
+    }, 4000);
   };
 
   if (isLoading) {
@@ -62,9 +68,9 @@ export const LyricsDisplay: React.FC = () => {
   return (
     <div 
       ref={containerRef}
-      onWheel={handleScroll}
-      onTouchMove={handleScroll}
-      onPointerDown={handleScroll}
+      onWheel={handleUserInteraction}
+      onTouchStart={handleUserInteraction}
+      onTouchMove={handleUserInteraction}
       className="h-full overflow-y-auto px-6 py-48 hide-scrollbar space-y-6 relative"
       style={{
         maskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)',

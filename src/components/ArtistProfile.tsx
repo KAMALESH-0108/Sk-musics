@@ -85,7 +85,7 @@ export const ArtistProfile: React.FC = () => {
     return (
       <motion.div 
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black flex items-center justify-center"
+        className="absolute inset-0 z-50 bg-black flex items-center justify-center"
       >
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
       </motion.div>
@@ -96,7 +96,7 @@ export const ArtistProfile: React.FC = () => {
     return (
       <motion.div 
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center text-white"
+        className="absolute inset-0 z-50 bg-black flex flex-col items-center justify-center text-white"
       >
         <p>Artist not found</p>
         <button onClick={() => setSelectedArtistId(null)} className="mt-4 px-4 py-2 bg-zinc-800 rounded-full">Go Back</button>
@@ -109,7 +109,7 @@ export const ArtistProfile: React.FC = () => {
       initial={{ opacity: 0, y: 50 }} 
       animate={{ opacity: 1, y: 0 }} 
       exit={{ opacity: 0, y: 50 }}
-      className="fixed inset-0 z-50 bg-black overflow-y-auto pb-24"
+      className="absolute inset-0 z-50 bg-black overflow-y-auto pb-24"
     >
       {/* Header Image */}
       <div className="relative h-72 md:h-96 w-full">

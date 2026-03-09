@@ -62,6 +62,18 @@ export const useDownloadStore = create<DownloadState>()(
           const responseToCache = new Response(blob);
           await cache.put(`/downloaded/${song.id}`, responseToCache);
 
+          // Also cache the artwork image
+          if (song.artworkUrl) {
+            try {
+              const imageResponse = await fetch(song.artworkUrl);
+              if (imageResponse.ok) {
+                await cache.put(song.artworkUrl, imageResponse);
+              }
+            } catch (imgError) {
+              console.error('Failed to cache artwork:', imgError);
+            }
+          }
+
           // Update state with local URL
           const localSong = { ...song, previewUrl: `/downloaded/${song.id}`, isOffline: true };
           
@@ -80,8 +92,15 @@ export const useDownloadStore = create<DownloadState>()(
 
       removeDownload: async (songId) => {
         try {
+          const state = get();
+          const song = state.downloadedSongs[songId];
+          
           const cache = await caches.open('sk-music-downloads');
           await cache.delete(`/downloaded/${songId}`);
+          
+          if (song && song.artworkUrl) {
+            await cache.delete(song.artworkUrl);
+          }
           
           set((state) => {
             const newDownloaded = { ...state.downloadedSongs };

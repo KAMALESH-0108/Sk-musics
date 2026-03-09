@@ -26,7 +26,7 @@ const BottomNav = ({ activeTab, setActiveTab }: { activeTab: string, setActiveTa
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-zinc-900/80 backdrop-blur-xl border-t border-red-900/30 pb-safe pt-2 px-6 z-40">
+    <div className="absolute bottom-0 left-0 right-0 bg-zinc-900/80 backdrop-blur-xl border-t border-red-900/30 pb-safe pt-2 px-6 z-40">
       <div className="flex justify-between items-center max-w-md mx-auto h-14">
         {tabs.map((tab) => {
           const Icon = tab.icon;
@@ -63,7 +63,7 @@ const MiniPlayer = () => {
       exit={{ y: 100, opacity: 0 }}
       whileHover={{ scale: 1.02, y: -5 }}
       whileTap={{ scale: 0.98 }}
-      className="fixed bottom-[72px] left-2 right-2 z-40"
+      className="absolute bottom-[72px] left-2 right-2 z-40"
     >
       <div 
         onClick={() => setPlayerOpen(true)}
@@ -99,7 +99,7 @@ const MiniPlayer = () => {
                 if (artists.length > 0) {
                   const artistName = artists[0].trim();
                   try {
-                    const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`)}`).then(res => res.json());
+                    const results = await fetch(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`).then(res => res.json());
                     if (results.data && results.data.results && results.data.results.length > 0) {
                       useNavigationStore.getState().setSelectedArtistId(results.data.results[0].id);
                       setPlayerOpen(false);
@@ -120,7 +120,7 @@ const MiniPlayer = () => {
                   onClick={async (e) => {
                     e.stopPropagation();
                     try {
-                      const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${currentSong.album}`)}`).then(res => res.json());
+                      const results = await fetch(`https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${currentSong.album}`).then(res => res.json());
                       if (results.data && results.data.results && results.data.results.length > 0) {
                         useNavigationStore.getState().setSelectedAlbumId(results.data.results[0].id);
                         setPlayerOpen(false);
@@ -466,7 +466,7 @@ const FullScreenPlayer = () => {
               setPlayerOpen(false);
             }
           }}
-          className="fixed inset-0 z-50 bg-zinc-900 flex flex-col"
+          className="absolute inset-0 z-50 bg-zinc-900 flex flex-col"
         >
           {/* Dynamic Background Blur */}
           <div 
@@ -668,7 +668,7 @@ const FullScreenPlayer = () => {
                       if (artists.length > 0) {
                         const artistName = artists[0].trim();
                         try {
-                          const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`)}`).then(res => res.json());
+                          const results = await fetch(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`).then(res => res.json());
                           if (results.data && results.data.results && results.data.results.length > 0) {
                             useNavigationStore.getState().setSelectedArtistId(results.data.results[0].id);
                             setPlayerOpen(false);
@@ -689,7 +689,7 @@ const FullScreenPlayer = () => {
                         onClick={async (e) => {
                           e.stopPropagation();
                           try {
-                            const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${currentSong.album}`)}`).then(res => res.json());
+                            const results = await fetch(`https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${currentSong.album}`).then(res => res.json());
                             if (results.data && results.data.results && results.data.results.length > 0) {
                               useNavigationStore.getState().setSelectedAlbumId(results.data.results[0].id);
                               setPlayerOpen(false);
@@ -894,7 +894,7 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
                         if (artists.length > 0) {
                           const artistName = artists[0].trim();
                           try {
-                            const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`)}`).then(res => res.json());
+                            const results = await fetch(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`).then(res => res.json());
                             if (results.data && results.data.results && results.data.results.length > 0) {
                               setSelectedArtistId(results.data.results[0].id);
                             }
@@ -914,7 +914,7 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
                           onClick={async (e) => {
                             e.stopPropagation();
                             try {
-                              const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${song.album}`)}`).then(res => res.json());
+                              const results = await fetch(`https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${song.album}`).then(res => res.json());
                               if (results.data && results.data.results && results.data.results.length > 0) {
                                 useNavigationStore.getState().setSelectedAlbumId(results.data.results[0].id);
                               }
@@ -1077,7 +1077,7 @@ const HomeView = () => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.98 }}
       transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-      className="flex-1 overflow-y-auto pb-32 pt-12"
+      className="flex-1 overflow-y-auto pb-32 pt-12 pt-safe"
     >
       <div className="px-4 mb-8">
         <AppLogo />
@@ -1117,7 +1117,7 @@ const HomeView = () => {
                     if (artists.length > 0) {
                       const artistName = artists[0].trim();
                       try {
-                        const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`)}`).then(res => res.json());
+                        const results = await fetch(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`).then(res => res.json());
                         if (results.data && results.data.results && results.data.results.length > 0) {
                           useNavigationStore.getState().setSelectedArtistId(results.data.results[0].id);
                         }
@@ -1137,7 +1137,7 @@ const HomeView = () => {
                       onClick={async (e) => {
                         e.stopPropagation();
                         try {
-                          const results = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(`https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${song.album}`)}`).then(res => res.json());
+                          const results = await fetch(`https://jiosaavn-api-privatecvc2.vercel.app/search/albums?query=${song.album}`).then(res => res.json());
                           if (results.data && results.data.results && results.data.results.length > 0) {
                             useNavigationStore.getState().setSelectedAlbumId(results.data.results[0].id);
                           }
@@ -1232,7 +1232,7 @@ const SearchView = () => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.98 }}
       transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-      className="flex-1 flex flex-col pt-12 pb-32"
+      className="flex-1 flex flex-col pt-12 pb-32 pt-safe"
     >
       <div className="px-4 mb-6 sticky top-0 z-10 bg-zinc-900/80 backdrop-blur-md py-4">
         <h1 className="text-3xl font-bold text-red-500 mb-4">Search</h1>
@@ -1371,7 +1371,7 @@ const LibraryView = () => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.98 }}
       transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-      className="flex-1 flex flex-col pt-12 pb-32"
+      className="flex-1 flex flex-col pt-12 pb-32 pt-safe"
     >
       <div className="px-4 mb-6">
         <h1 className="text-3xl font-bold text-red-500 mb-6">Your Library</h1>
@@ -1574,7 +1574,7 @@ const ProfileView = () => {
       animate={{ opacity: 1, y: 0, scale: 1 }}
       exit={{ opacity: 0, y: -20, scale: 0.98 }}
       transition={{ type: 'spring', bounce: 0, duration: 0.4 }}
-      className="flex-1 flex flex-col pt-12 pb-32 px-4 overflow-y-auto hide-scrollbar"
+      className="flex-1 flex flex-col pt-12 pb-32 px-4 pt-safe overflow-y-auto hide-scrollbar"
     >
       <h1 className="text-3xl font-bold text-red-500 mb-8 px-2">Profile</h1>
       
@@ -1901,84 +1901,91 @@ export default function App() {
 
   // Audio Engine Logic
   useEffect(() => {
-    if (!audioRef.current) {
-      audioRef.current = new Audio();
+    const audio = audioRef.current;
+    if (!audio) return;
+    
+    const handleTimeUpdate = () => {
+      setProgress(audio.currentTime);
+      if ('mediaSession' in navigator && !isNaN(audio.duration)) {
+        try {
+          navigator.mediaSession.setPositionState({
+            duration: audio.duration,
+            playbackRate: audio.playbackRate,
+            position: audio.currentTime
+          });
+        } catch (e) {
+          // Ignore errors if position state is invalid
+        }
+      }
+    };
+    
+    const handleLoadedMetadata = () => {
+      setDuration(audio.duration);
+    };
+
+    const handleEnded = async () => {
+      const { currentSong, queue, isRepeat, isShuffle, next, setQueue } = usePlayerStore.getState();
       
-      audioRef.current.addEventListener('timeupdate', () => {
-        if (audioRef.current) {
-          setProgress(audioRef.current.currentTime);
-          if ('mediaSession' in navigator && !isNaN(audioRef.current.duration)) {
-            try {
-              navigator.mediaSession.setPositionState({
-                duration: audioRef.current.duration,
-                playbackRate: audioRef.current.playbackRate,
-                position: audioRef.current.currentTime
-              });
-            } catch (e) {
-              // Ignore errors if position state is invalid
+      if (!isRepeat && !isShuffle && currentSong) {
+        const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
+        if (currentIndex === queue.length - 1) {
+          // Reached the end of the queue, fetch similar songs
+          useNotificationStore.getState().showNotification('Fetching similar songs for auto-play...');
+          try {
+            const artist = currentSong.artist.split(',')[0].trim();
+            const similarSongs = await fetchTamilMusic(`tamil ${artist}`, 10);
+            const newSongs = similarSongs.filter(s => !queue.find(qs => qs.id === s.id));
+            
+            if (newSongs.length > 0) {
+              setQueue([...queue, ...newSongs]);
+              useNotificationStore.getState().showNotification('Added similar songs to queue');
             }
+          } catch (error) {
+            console.error('Failed to fetch similar songs', error);
           }
         }
-      });
+      }
       
-      audioRef.current.addEventListener('loadedmetadata', () => {
-        if (audioRef.current) setDuration(audioRef.current.duration);
-      });
+      next();
 
-      audioRef.current.addEventListener('ended', async () => {
-        const { currentSong, queue, isRepeat, isShuffle, next, setQueue } = usePlayerStore.getState();
-        
-        if (!isRepeat && !isShuffle && currentSong) {
-          const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
-          if (currentIndex === queue.length - 1) {
-            // Reached the end of the queue, fetch similar songs
-            useNotificationStore.getState().showNotification('Fetching similar songs for auto-play...');
-            try {
-              const artist = currentSong.artist.split(',')[0].trim();
-              const similarSongs = await fetchTamilMusic(`tamil ${artist}`, 10);
-              const newSongs = similarSongs.filter(s => !queue.find(qs => qs.id === s.id));
-              
-              if (newSongs.length > 0) {
-                setQueue([...queue, ...newSongs]);
-                useNotificationStore.getState().showNotification('Added similar songs to queue');
-              }
-            } catch (error) {
-              console.error('Failed to fetch similar songs', error);
-            }
-          }
-        }
-        next();
-      });
+      // Synchronously play the next song to bypass WebView auto-play restrictions
+      const newState = usePlayerStore.getState();
+      const nextSong = newState.currentSong;
+      if (nextSong && audio) {
+        const downloadedSong = useDownloadStore.getState().downloadedSongs[nextSong.id];
+        const audioUrl = downloadedSong ? downloadedSong.previewUrl : nextSong.previewUrl;
+        audio.src = audioUrl;
+        audio.play().catch(console.error);
+      }
+    };
 
-      const handleSeek = (e: Event) => {
-        const customEvent = e as CustomEvent<number>;
-        if (audioRef.current) {
-          audioRef.current.currentTime = customEvent.detail;
-        }
-      };
-      window.addEventListener('seek', handleSeek);
+    audio.addEventListener('timeupdate', handleTimeUpdate);
+    audio.addEventListener('loadedmetadata', handleLoadedMetadata);
+    audio.addEventListener('ended', handleEnded);
 
-      // Store cleanup function
-      (audioRef.current as any).cleanup = () => {
-        window.removeEventListener('seek', handleSeek);
-      };
-    }
+    const handleSeek = (e: Event) => {
+      const customEvent = e as CustomEvent<number>;
+      audio.currentTime = customEvent.detail;
+    };
+    window.addEventListener('seek', handleSeek);
 
     return () => {
-      if (audioRef.current) {
-        if ((audioRef.current as any).cleanup) {
-          (audioRef.current as any).cleanup();
-        }
-        audioRef.current.pause();
-        audioRef.current.src = '';
-      }
+      audio.removeEventListener('timeupdate', handleTimeUpdate);
+      audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
+      audio.removeEventListener('ended', handleEnded);
+      window.removeEventListener('seek', handleSeek);
+      audio.pause();
+      audio.src = '';
     };
   }, []);
 
   useEffect(() => {
     if (audioRef.current && currentSong) {
-      if (audioRef.current.src !== currentSong.previewUrl) {
-        audioRef.current.src = currentSong.previewUrl;
+      const downloadedSong = useDownloadStore.getState().downloadedSongs[currentSong.id];
+      const audioUrl = downloadedSong ? downloadedSong.previewUrl : currentSong.previewUrl;
+      
+      if (!audioRef.current.src.endsWith(audioUrl)) {
+        audioRef.current.src = audioUrl;
       }
       if (isPlaying) {
         audioRef.current.play().catch(console.error);
@@ -2034,7 +2041,7 @@ export default function App() {
   const { message } = useNotificationStore();
 
   return (
-    <div className="bg-zinc-900 min-h-screen text-white font-sans flex flex-col max-w-md mx-auto relative overflow-hidden shadow-2xl">
+    <div className="bg-zinc-900 h-[100dvh] text-white font-sans flex flex-col max-w-md mx-auto relative overflow-hidden shadow-2xl">
       {/* Subtle Red Gradient Background */}
       <div className="absolute inset-0 bg-gradient-to-br from-red-950/40 via-zinc-900/80 to-zinc-900 pointer-events-none" />
       
@@ -2066,12 +2073,15 @@ export default function App() {
             initial={{ opacity: 0, y: 50 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 50 }}
-            className="fixed bottom-24 left-1/2 -translate-x-1/2 bg-zinc-800 text-white px-4 py-2 rounded-full shadow-lg z-50 text-sm font-medium whitespace-nowrap"
+            className="absolute bottom-24 left-1/2 -translate-x-1/2 bg-zinc-800 text-white px-4 py-2 rounded-full shadow-lg z-50 text-sm font-medium whitespace-nowrap"
           >
             {message}
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Hidden Audio Element for WebView Compatibility */}
+      <audio ref={audioRef} playsInline preload="auto" />
     </div>
   );
 }
