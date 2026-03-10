@@ -1988,7 +1988,14 @@ export default function App() {
         const downloadedSong = useDownloadStore.getState().downloadedSongs[nextSong.id];
         const audioUrl = downloadedSong ? downloadedSong.previewUrl : nextSong.previewUrl;
         audio.src = audioUrl;
-        audio.play().catch(console.error);
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            if (error.name !== 'AbortError') {
+              console.error('Playback error:', error);
+            }
+          });
+        }
       }
     };
 
@@ -2021,7 +2028,14 @@ export default function App() {
         audioRef.current.src = audioUrl;
       }
       if (isPlaying) {
-        audioRef.current.play().catch(console.error);
+        const playPromise = audioRef.current.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(error => {
+            if (error.name !== 'AbortError') {
+              console.error('Playback error:', error);
+            }
+          });
+        }
       } else {
         audioRef.current.pause();
       }

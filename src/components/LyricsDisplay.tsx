@@ -75,7 +75,7 @@ export const LyricsDisplay: React.FC = () => {
       onTouchStart={handleUserInteraction}
       onTouchMove={handleUserInteraction}
       onPointerDown={handleUserInteraction}
-      className="h-full overflow-y-auto px-6 py-48 hide-scrollbar space-y-6 relative scroll-smooth"
+      className="h-full overflow-y-auto px-6 py-48 custom-scrollbar space-y-6 relative scroll-smooth"
       style={{
         maskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)',
         WebkitMaskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)'
