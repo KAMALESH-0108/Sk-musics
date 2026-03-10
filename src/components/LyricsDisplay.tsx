@@ -34,15 +34,9 @@ export const LyricsDisplay: React.FC = () => {
         
         const targetScroll = elementOffset - containerHalfHeight + elementHalfHeight;
         
-        // Use scrollTop for maximum compatibility with older WebViews
-        try {
-          container.scrollTo({
-            top: targetScroll,
-            behavior: 'smooth'
-          });
-        } catch (e) {
-          container.scrollTop = targetScroll;
-        }
+        // Use scrollTop directly for maximum compatibility with older WebViews.
+        // The 'scroll-smooth' Tailwind class ensures this animates smoothly.
+        container.scrollTop = targetScroll;
       }
     }
   }, [activeIndex, isAutoScrolling]);
@@ -80,6 +74,7 @@ export const LyricsDisplay: React.FC = () => {
       onWheel={handleUserInteraction}
       onTouchStart={handleUserInteraction}
       onTouchMove={handleUserInteraction}
+      onPointerDown={handleUserInteraction}
       className="h-full overflow-y-auto px-6 py-48 hide-scrollbar space-y-6 relative scroll-smooth"
       style={{
         maskImage: 'linear-gradient(to bottom, transparent, black 15%, black 85%, transparent)',

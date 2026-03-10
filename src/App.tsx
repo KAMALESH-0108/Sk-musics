@@ -1212,7 +1212,19 @@ const SearchView = () => {
         return;
       }
       setLoading(true);
-      const data = await fetchTamilMusic(`tamil ${query}`, 50);
+      
+      let searchQuery = `tamil ${query}`;
+      const q = query.toLowerCase();
+      if (q === 'melody') searchQuery = 'tamil melody hits';
+      if (q === '90s') searchQuery = 'tamil 90s hits';
+      if (q === '80s') searchQuery = 'tamil 80s hits';
+      if (q === '2000s') searchQuery = 'tamil 2000s hits';
+      if (q === 'trends') searchQuery = 'tamil trending songs';
+      if (q === 'artists') searchQuery = 'tamil top artists';
+      if (q === 'albums') searchQuery = 'tamil top albums';
+      if (q === 'genres') searchQuery = 'tamil genres';
+      
+      const data = await fetchTamilMusic(searchQuery, 50);
       setResults(data);
       setLoading(false);
       
@@ -1247,6 +1259,23 @@ const SearchView = () => {
             onBlur={() => setTimeout(() => setIsFocused(false), 200)}
             className="w-full bg-zinc-900/50 border border-red-900/30 text-white rounded-xl py-3 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-red-500 transition-all"
           />
+        </div>
+        
+        {/* Quick Filters */}
+        <div className="flex gap-2 mt-4 overflow-x-auto hide-scrollbar pb-2">
+          {['All', 'Melody', 'Artists', 'Albums', '90s', '80s', '2000s', 'Trends', 'Genres'].map(filter => (
+             <button 
+               key={filter}
+               onClick={() => setQuery(filter === 'All' ? '' : filter)}
+               className={`px-4 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                 (query === filter || (query === '' && filter === 'All'))
+                   ? 'bg-red-500 text-white' 
+                   : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+               }`}
+             >
+               {filter}
+             </button>
+          ))}
         </div>
       </div>
 
@@ -1904,8 +1933,32 @@ export default function App() {
     const audio = audioRef.current;
     if (!audio) return;
     
-    const handleTimeUpdate = () => {
+    let isFetchingAutoPlay = false;
+
+    const handleTimeUpdate = async () => {
       setProgress(audio.currentTime);
+      
+      // Pre-fetch next songs for auto-play when 15 seconds are left in the last song
+      const { currentSong, queue, isRepeat, appendQueue } = usePlayerStore.getState();
+      if (currentSong && !isRepeat && !isFetchingAutoPlay && audio.duration > 0 && (audio.duration - audio.currentTime < 15)) {
+        const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
+        if (currentIndex === queue.length - 1) {
+          isFetchingAutoPlay = true;
+          try {
+            const artist = currentSong.artist.split(',')[0].trim();
+            const similarSongs = await fetchTamilMusic(`tamil ${artist}`, 10);
+            const newSongs = similarSongs.filter(s => !queue.find(qs => qs.id === s.id));
+            
+            if (newSongs.length > 0) {
+              appendQueue(newSongs);
+              useNotificationStore.getState().showNotification('Added similar songs to queue');
+            }
+          } catch (error) {
+            console.error('Failed to fetch similar songs', error);
+          }
+        }
+      }
+
       if ('mediaSession' in navigator && !isNaN(audio.duration)) {
         try {
           navigator.mediaSession.setPositionState({
@@ -1923,28 +1976,8 @@ export default function App() {
       setDuration(audio.duration);
     };
 
-    const handleEnded = async () => {
-      const { currentSong, queue, isRepeat, isShuffle, next, setQueue } = usePlayerStore.getState();
-      
-      if (!isRepeat && !isShuffle && currentSong) {
-        const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
-        if (currentIndex === queue.length - 1) {
-          // Reached the end of the queue, fetch similar songs
-          useNotificationStore.getState().showNotification('Fetching similar songs for auto-play...');
-          try {
-            const artist = currentSong.artist.split(',')[0].trim();
-            const similarSongs = await fetchTamilMusic(`tamil ${artist}`, 10);
-            const newSongs = similarSongs.filter(s => !queue.find(qs => qs.id === s.id));
-            
-            if (newSongs.length > 0) {
-              setQueue([...queue, ...newSongs]);
-              useNotificationStore.getState().showNotification('Added similar songs to queue');
-            }
-          } catch (error) {
-            console.error('Failed to fetch similar songs', error);
-          }
-        }
-      }
+    const handleEnded = () => {
+      const { next } = usePlayerStore.getState();
       
       next();
 
