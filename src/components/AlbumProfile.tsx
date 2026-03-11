@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ChevronLeft, Play, Loader2, Music } from 'lucide-react';
+import { ChevronLeft, Play, Loader2, Music, Share2 } from 'lucide-react';
 import { fetchAlbumDetails } from '../services/api';
 import { usePlayerStore, Song } from '../store/usePlayerStore';
 import { useNavigationStore } from '../store/useNavigationStore';
 import { useLibraryStore } from '../store/useLibraryStore';
+import { useNotificationStore } from '../store/useNotificationStore';
 
 export const AlbumProfile = () => {
   const { selectedAlbumId, setSelectedAlbumId } = useNavigationStore();
@@ -116,7 +117,7 @@ export const AlbumProfile = () => {
       </div>
 
       <div className="px-6 py-6 max-w-7xl mx-auto space-y-10">
-        {/* Play Button */}
+        {/* Actions */}
         <div className="flex items-center gap-4">
           <motion.button 
             whileHover={{ scale: 1.1, y: -2 }} whileTap={{ scale: 0.9 }}
@@ -125,7 +126,24 @@ export const AlbumProfile = () => {
           >
             <Play size={24} fill="currentColor" className="ml-1" />
           </motion.button>
-          <span className="text-zinc-400 font-medium uppercase tracking-wider text-sm">Play Album</span>
+          <motion.button 
+            whileHover={{ scale: 1.1, y: -2 }} whileTap={{ scale: 0.9 }}
+            onClick={() => {
+              if (navigator.share) {
+                navigator.share({
+                  title: album.name,
+                  text: `Listen to ${album.name} on SK Music`,
+                  url: window.location.href,
+                }).catch(console.error);
+              } else {
+                navigator.clipboard.writeText(`Listen to ${album.name} - ${window.location.href}`);
+                useNotificationStore.getState().showNotification('Link copied to clipboard');
+              }
+            }}
+            className="w-14 h-14 bg-zinc-800 rounded-full flex items-center justify-center text-white hover:bg-zinc-700 transition-colors"
+          >
+            <Share2 size={24} />
+          </motion.button>
         </div>
 
         {/* Songs */}

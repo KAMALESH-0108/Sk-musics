@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, useMotionValue, useTransform, useSpring, useMotionTemplate, Reorder, useDragControls } from 'motion/react';
-import { Home, Search, Library, Play, Pause, SkipForward, SkipBack, ChevronDown, Repeat, Shuffle, Heart, ListMusic, Plus, X, Mic2, User, Users, Download, CheckCircle2, Loader2, MoreVertical, Share2, Settings, Bell, Wifi, Shield, LogOut, ChevronRight, Smartphone, GripVertical } from 'lucide-react';
+import { Home, Search, Library, Play, Pause, SkipForward, SkipBack, ChevronDown, ChevronUp, Repeat, Shuffle, Heart, ListMusic, Plus, X, Mic2, User, Users, Download, CheckCircle2, Loader2, MoreVertical, Share2, Settings, Bell, Wifi, Shield, LogOut, ChevronRight, Smartphone, GripVertical } from 'lucide-react';
 import { io } from 'socket.io-client';
 import { usePlayerStore, Song } from './store/usePlayerStore';
 import { useLibraryStore } from './store/useLibraryStore';
@@ -833,9 +833,9 @@ const FullScreenPlayer = () => {
 
 // --- Views ---
 
-const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, playlistId?: string }) => {
+const SongList = ({ songs, title, playlistId, isCollaborative, collabId }: { songs: Song[], title: string, playlistId?: string, isCollaborative?: boolean, collabId?: string }) => {
   const { setCurrentSong, setQueue, currentSong, isPlaying } = usePlayerStore();
-  const { addToHistory, playlists, addSongToPlaylist, removeSongFromPlaylist } = useLibraryStore();
+  const { addToHistory, playlists, addSongToPlaylist, removeSongFromPlaylist, reorderPlaylist } = useLibraryStore();
   const { downloadSong, isDownloaded, isDownloading, removeDownload } = useDownloadStore();
   const { setSelectedArtistId } = useNavigationStore();
   const [showPlaylistsFor, setShowPlaylistsFor] = useState<string | null>(null);
@@ -844,6 +844,19 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
     setCurrentSong(song);
     setQueue(songs);
     addToHistory(song);
+  };
+
+  const moveSong = (index: number, direction: 'up' | 'down') => {
+    if (!playlistId) return;
+    const newIndex = direction === 'up' ? index - 1 : index + 1;
+    if (newIndex < 0 || newIndex >= songs.length) return;
+    
+    const newSongs = [...songs];
+    const temp = newSongs[index];
+    newSongs[index] = newSongs[newIndex];
+    newSongs[newIndex] = temp;
+    
+    reorderPlaylist(playlistId, newSongs);
   };
 
   return (
@@ -934,6 +947,25 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
                   <button
                     onClick={(e) => {
                       e.stopPropagation();
+                      if (navigator.share) {
+                        navigator.share({
+                          title: song.title,
+                          text: `Listen to ${song.title} by ${song.artist}`,
+                          url: window.location.href,
+                        }).catch(console.error);
+                      } else {
+                        navigator.clipboard.writeText(`${song.title} by ${song.artist} - ${window.location.href}`);
+                        useNotificationStore.getState().showNotification('Link copied to clipboard');
+                      }
+                    }}
+                    className="p-2 text-zinc-400 hover:text-red-400 transition-colors"
+                    title="Share"
+                  >
+                    <Share2 size={20} />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
                       if (downloaded) {
                         removeDownload(song.id);
                       } else if (!downloading) {
@@ -953,16 +985,42 @@ const SongList = ({ songs, title, playlistId }: { songs: Song[], title: string, 
                   </button>
 
                   {playlistId ? (
-                    <button 
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        removeSongFromPlaylist(playlistId, song.id);
-                      }}
-                      className="p-2 text-zinc-500 hover:text-red-500 transition-colors"
-                      title="Remove from Playlist"
-                    >
-                      <X size={20} />
-                    </button>
+                    <div className="flex items-center">
+                      <div className="flex flex-col mr-1">
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveSong(idx, 'up');
+                          }}
+                          disabled={idx === 0}
+                          className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 transition-colors"
+                          title="Move Up"
+                        >
+                          <ChevronUp size={16} />
+                        </button>
+                        <button 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            moveSong(idx, 'down');
+                          }}
+                          disabled={idx === songs.length - 1}
+                          className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 transition-colors"
+                          title="Move Down"
+                        >
+                          <ChevronDown size={16} />
+                        </button>
+                      </div>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeSongFromPlaylist(playlistId, song.id);
+                        }}
+                        className="p-2 text-zinc-500 hover:text-red-500 transition-colors"
+                        title="Remove from Playlist"
+                      >
+                        <X size={20} />
+                      </button>
+                    </div>
                   ) : (
                     <button 
                       onClick={(e) => {
@@ -1351,11 +1409,13 @@ const SearchView = () => {
 };
 
 const LibraryView = () => {
-  const { likedSongs, history, playlists, createPlaylist, deletePlaylist } = useLibraryStore();
+  const { likedSongs, history, playlists, createPlaylist, deletePlaylist, makeCollaborative, joinCollaborativePlaylist, updatePlaylistSongs } = useLibraryStore();
   const { downloadedSongs } = useDownloadStore();
   const [activeTab, setActiveTab] = useState<'liked' | 'history' | 'playlists' | 'downloads'>('playlists');
   const [isCreating, setIsCreating] = useState(false);
+  const [isJoining, setIsJoining] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState('');
+  const [joinCollabId, setJoinCollabId] = useState('');
   const [viewingPlaylistId, setViewingPlaylistId] = useState<string | null>(null);
 
   const handleCreatePlaylist = (e: React.FormEvent) => {
@@ -1367,7 +1427,54 @@ const LibraryView = () => {
     }
   };
 
+  const handleJoinPlaylist = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (joinCollabId.trim()) {
+      // Create a placeholder playlist that will be populated via socket
+      const newPlaylist = {
+        id: Date.now().toString(),
+        name: `Collab: ${joinCollabId}`,
+        songs: [],
+        createdAt: Date.now(),
+        isCollaborative: true,
+        collabId: joinCollabId.trim()
+      };
+      joinCollaborativePlaylist(newPlaylist);
+      setJoinCollabId('');
+      setIsJoining(false);
+      setViewingPlaylistId(newPlaylist.id);
+    }
+  };
+
   const viewingPlaylist = playlists.find(p => p.id === viewingPlaylistId);
+
+  // Socket connection for collaborative playlists
+  useEffect(() => {
+    if (viewingPlaylist && viewingPlaylist.isCollaborative && viewingPlaylist.collabId) {
+      const socket = io(window.location.origin);
+      
+      socket.emit('join-collab-playlist', { 
+        playlistId: viewingPlaylist.collabId, 
+        user: { name: 'User' },
+        initialSongs: viewingPlaylist.songs
+      });
+
+      socket.on('collab-playlist-state', (state) => {
+        if (state && state.songs) {
+          updatePlaylistSongs(viewingPlaylist.id, state.songs);
+        }
+      });
+
+      socket.on('collab-playlist-updated', (songs) => {
+        updatePlaylistSongs(viewingPlaylist.id, songs);
+      });
+
+      return () => {
+        socket.emit('leave-collab-playlist', { playlistId: viewingPlaylist.collabId });
+        socket.disconnect();
+      };
+    }
+  }, [viewingPlaylist?.id, viewingPlaylist?.isCollaborative, viewingPlaylist?.collabId]);
 
   if (viewingPlaylist) {
     return (
@@ -1377,15 +1484,57 @@ const LibraryView = () => {
         exit={{ opacity: 0, x: -20 }}
         className="flex-1 flex flex-col pt-12 pb-32"
       >
-        <div className="px-4 mb-6 flex items-center gap-4">
-          <button onClick={() => setViewingPlaylistId(null)} className="p-2 -ml-2 text-zinc-400 hover:text-white">
-            <ChevronDown className="rotate-90" size={24} />
-          </button>
-          <h1 className="text-2xl font-bold text-white truncate">{viewingPlaylist.name}</h1>
+        <div className="px-4 mb-6 flex items-center justify-between">
+          <div className="flex items-center gap-4 min-w-0">
+            <button onClick={() => setViewingPlaylistId(null)} className="p-2 -ml-2 text-zinc-400 hover:text-white flex-shrink-0">
+              <ChevronDown className="rotate-90" size={24} />
+            </button>
+            <h1 className="text-2xl font-bold text-white truncate">{viewingPlaylist.name}</h1>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            {!viewingPlaylist.isCollaborative ? (
+              <button 
+                onClick={() => {
+                  const collabId = makeCollaborative(viewingPlaylist.id);
+                  useNotificationStore.getState().showNotification(`Playlist is now collaborative! ID: ${collabId}`);
+                }}
+                className="p-2 text-zinc-400 hover:text-white transition-colors"
+                title="Make Collaborative"
+              >
+                <Users size={20} />
+              </button>
+            ) : (
+              <div className="px-3 py-1 bg-red-500/20 text-red-400 rounded-full text-xs font-bold border border-red-500/30">
+                Collab ID: {viewingPlaylist.collabId}
+              </div>
+            )}
+            <button 
+              onClick={() => {
+                const shareText = viewingPlaylist.isCollaborative 
+                  ? `Join my collaborative playlist on SK Music! Collab ID: ${viewingPlaylist.collabId}`
+                  : `Check out my playlist "${viewingPlaylist.name}" on SK Music!`;
+                
+                if (navigator.share) {
+                  navigator.share({
+                    title: viewingPlaylist.name,
+                    text: shareText,
+                    url: window.location.href,
+                  }).catch(console.error);
+                } else {
+                  navigator.clipboard.writeText(shareText);
+                  useNotificationStore.getState().showNotification('Share link copied to clipboard');
+                }
+              }}
+              className="p-2 text-zinc-400 hover:text-white transition-colors"
+              title="Share Playlist"
+            >
+              <Share2 size={20} />
+            </button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto">
           {viewingPlaylist.songs.length > 0 ? (
-            <SongList title={`${viewingPlaylist.songs.length} songs`} songs={viewingPlaylist.songs} playlistId={viewingPlaylist.id} />
+            <SongList title={`${viewingPlaylist.songs.length} songs`} songs={viewingPlaylist.songs} playlistId={viewingPlaylist.id} isCollaborative={viewingPlaylist.isCollaborative} collabId={viewingPlaylist.collabId} />
           ) : (
             <div className="text-center text-zinc-500 mt-10">This playlist is empty.</div>
           )}
@@ -1435,13 +1584,22 @@ const LibraryView = () => {
       <div className="flex-1 overflow-y-auto">
         {activeTab === 'playlists' ? (
           <div className="px-4">
-            <button 
-              onClick={() => setIsCreating(true)}
-              className="w-full flex items-center justify-center gap-2 py-3 mb-4 rounded-xl border border-red-500/50 text-red-400 hover:bg-red-500/10 transition-colors"
-            >
-              <Plus size={20} />
-              <span className="font-medium">Create Playlist</span>
-            </button>
+            <div className="flex gap-2 mb-4">
+              <button 
+                onClick={() => { setIsCreating(true); setIsJoining(false); }}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-red-500/50 text-red-400 hover:bg-red-500/10 transition-colors"
+              >
+                <Plus size={20} />
+                <span className="font-medium">Create</span>
+              </button>
+              <button 
+                onClick={() => { setIsJoining(true); setIsCreating(false); }}
+                className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl border border-blue-500/50 text-blue-400 hover:bg-blue-500/10 transition-colors"
+              >
+                <Users size={20} />
+                <span className="font-medium">Join Collab</span>
+              </button>
+            </div>
 
             {isCreating && (
               <form onSubmit={handleCreatePlaylist} className="mb-6 bg-zinc-900/50 p-4 rounded-xl border border-red-900/30">
@@ -1467,6 +1625,35 @@ const LibraryView = () => {
                     className="px-4 py-2 bg-red-600 text-white rounded-lg disabled:opacity-50"
                   >
                     Create
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {isJoining && (
+              <form onSubmit={handleJoinPlaylist} className="mb-6 bg-zinc-900/50 p-4 rounded-xl border border-blue-900/30">
+                <input
+                  type="text"
+                  placeholder="Collab ID"
+                  value={joinCollabId}
+                  onChange={(e) => setJoinCollabId(e.target.value)}
+                  className="w-full bg-zinc-900/50 border border-zinc-800 text-white rounded-lg py-2 px-3 focus:outline-none focus:border-blue-500 mb-3"
+                  autoFocus
+                />
+                <div className="flex justify-end gap-2">
+                  <button 
+                    type="button" 
+                    onClick={() => setIsJoining(false)}
+                    className="px-4 py-2 text-zinc-400 hover:text-white"
+                  >
+                    Cancel
+                  </button>
+                  <button 
+                    type="submit"
+                    disabled={!joinCollabId.trim()}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg disabled:opacity-50"
+                  >
+                    Join
                   </button>
                 </div>
               </form>

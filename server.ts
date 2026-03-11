@@ -225,6 +225,9 @@ app.post('/api/auth/logout', (req, res) => {
 // Jam session state
 const jamSessions = new Map();
 
+// Collaborative Playlists state
+const collabPlaylists = new Map();
+
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
@@ -261,6 +264,40 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Collaborative Playlists
+  socket.on('join-collab-playlist', ({ playlistId, user, initialSongs }) => {
+    socket.join(`collab-${playlistId}`);
+    if (!collabPlaylists.has(playlistId)) {
+      collabPlaylists.set(playlistId, { id: playlistId, name: 'Shared Playlist', songs: initialSongs || [], users: [] });
+    }
+    const playlist = collabPlaylists.get(playlistId);
+    if (!playlist.users.find((u: any) => u.id === socket.id)) {
+      playlist.users.push({ id: socket.id, ...user });
+    }
+    // Send current state to the joining user
+    socket.emit('collab-playlist-state', playlist);
+    // Notify others
+    io.to(`collab-${playlistId}`).emit('collab-playlist-users', playlist.users);
+  });
+
+  socket.on('leave-collab-playlist', ({ playlistId }) => {
+    socket.leave(`collab-${playlistId}`);
+    const playlist = collabPlaylists.get(playlistId);
+    if (playlist) {
+      playlist.users = playlist.users.filter((u: any) => u.id !== socket.id);
+      io.to(`collab-${playlistId}`).emit('collab-playlist-users', playlist.users);
+    }
+  });
+
+  socket.on('collab-playlist-update', ({ playlistId, songs }) => {
+    const playlist = collabPlaylists.get(playlistId);
+    if (playlist) {
+      playlist.songs = songs;
+      // Broadcast to everyone else in the room
+      socket.to(`collab-${playlistId}`).emit('collab-playlist-updated', songs);
+    }
+  });
+
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
     // Clean up user from any sessions
@@ -270,6 +307,15 @@ io.on('connection', (socket) => {
         jamSessions.delete(jamId);
       } else {
         io.to(jamId).emit('jam-updated', session);
+      }
+    });
+
+    // Clean up user from collab playlists
+    collabPlaylists.forEach((playlist, playlistId) => {
+      const initialLength = playlist.users.length;
+      playlist.users = playlist.users.filter((u: any) => u.id !== socket.id);
+      if (playlist.users.length !== initialLength) {
+        io.to(`collab-${playlistId}`).emit('collab-playlist-users', playlist.users);
       }
     });
   });
