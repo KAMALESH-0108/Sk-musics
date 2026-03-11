@@ -45,7 +45,7 @@ export const fetchRecommendations = async (history: Song[], likedSongs: Song[]):
     const artists = new Set<string>();
     const keywords = new Set<string>();
     
-    [...history, ...likedSongs].forEach(song => {
+    [...(history || []), ...(likedSongs || [])].forEach(song => {
       if (song.artist) {
         song.artist.split(',').forEach(a => artists.add(a.trim()));
       }

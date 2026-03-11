@@ -69,7 +69,7 @@ export const AlbumProfile = () => {
   };
 
   const handlePlayAll = () => {
-    if (album.songs.length > 0) {
+    if (album.songs && album.songs.length > 0) {
       setCurrentSong(album.songs[0]);
       setQueue(album.songs);
       addToHistory(album.songs[0]);

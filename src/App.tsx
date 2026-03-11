@@ -847,7 +847,7 @@ const SongList = ({ songs, title, playlistId, isCollaborative, collabId }: { son
   };
 
   const moveSong = (index: number, direction: 'up' | 'down') => {
-    if (!playlistId) return;
+    if (!playlistId || !songs) return;
     const newIndex = direction === 'up' ? index - 1 : index + 1;
     if (newIndex < 0 || newIndex >= songs.length) return;
     
@@ -863,7 +863,7 @@ const SongList = ({ songs, title, playlistId, isCollaborative, collabId }: { son
     <div className="mb-8">
       <h2 className="text-xl font-bold text-white mb-4 px-4">{title}</h2>
       <div className="flex flex-col gap-2 px-4">
-        {songs.map((song, idx) => {
+        {(songs || []).map((song, idx) => {
           const isCurrent = currentSong?.id === song.id;
           const downloaded = isDownloaded(song.id);
           const downloading = isDownloading[song.id];
@@ -1003,7 +1003,7 @@ const SongList = ({ songs, title, playlistId, isCollaborative, collabId }: { son
                             e.stopPropagation();
                             moveSong(idx, 'down');
                           }}
-                          disabled={idx === songs.length - 1}
+                          disabled={idx === (songs || []).length - 1}
                           className="p-1 text-zinc-500 hover:text-white disabled:opacity-30 transition-colors"
                           title="Move Down"
                         >
@@ -1052,10 +1052,10 @@ const SongList = ({ songs, title, playlistId, isCollaborative, collabId }: { son
                   </button>
                   <div className="h-px bg-zinc-800 my-1" />
                   <div className="px-3 py-1 text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-1">Add to Playlist</div>
-                  {playlists.length === 0 ? (
+                  {(playlists || []).length === 0 ? (
                     <div className="px-4 py-2 text-sm text-zinc-400">No playlists yet</div>
                   ) : (
-                    playlists.map(p => (
+                    (playlists || []).map(p => (
                       <button
                         key={p.id}
                         onClick={(e) => {
@@ -1144,7 +1144,7 @@ const HomeView = () => {
       
       {/* Featured Carousel (Simplified) */}
       <div className="px-4 mb-8 flex gap-4 overflow-x-auto snap-x snap-mandatory hide-scrollbar">
-        {trending.slice(0, 5).map((song) => (
+        {(trending || []).slice(0, 5).map((song) => (
           <motion.div 
             key={song.id} 
             onClick={() => {
@@ -1214,11 +1214,11 @@ const HomeView = () => {
         ))}
       </div>
 
-      {recommendations.length > 0 && (
-        <SongList title="Recommended for You" songs={recommendations} />
+      {(recommendations || []).length > 0 && (
+        <SongList title="Recommended for You" songs={recommendations || []} />
       )}
-      <SongList title="Trending Now" songs={trending} />
-      <SongList title="New Releases" songs={newReleases} />
+      <SongList title="Trending Now" songs={trending || []} />
+      <SongList title="New Releases" songs={newReleases || []} />
     </motion.div>
   );
 };
@@ -1338,7 +1338,7 @@ const SearchView = () => {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-        {isFocused && query.length < 3 && searchHistory.length > 0 ? (
+        {isFocused && query.length < 3 && (searchHistory || []).length > 0 ? (
           <div className="px-4 mb-6">
             <div className="flex justify-between items-center mb-3">
               <h3 className="text-sm font-semibold text-zinc-400">Recent Searches</h3>
@@ -1353,7 +1353,7 @@ const SearchView = () => {
               </button>
             </div>
             <div className="flex flex-col gap-2">
-              {searchHistory.map((item, idx) => (
+              {(searchHistory || []).map((item, idx) => (
                 <div 
                   key={idx} 
                   onClick={() => setQuery(item)}
@@ -1375,8 +1375,8 @@ const SearchView = () => {
           </div>
         ) : loading ? (
           <div className="text-center text-zinc-500 mt-10">Searching...</div>
-        ) : results.length > 0 ? (
-          <SongList title="Top Results" songs={results} />
+        ) : (results || []).length > 0 ? (
+          <SongList title="Top Results" songs={results || []} />
         ) : query.length >= 3 ? (
           <div className="text-center text-zinc-500 mt-10">No results found for "{query}"</div>
         ) : (
@@ -1398,8 +1398,8 @@ const SearchView = () => {
               </div>
             </div>
             
-            {recommendations.length > 0 && (
-              <SongList title="Recommended for You" songs={recommendations} />
+            {(recommendations || []).length > 0 && (
+              <SongList title="Recommended for You" songs={recommendations || []} />
             )}
           </div>
         )}
@@ -1446,7 +1446,7 @@ const LibraryView = () => {
     }
   };
 
-  const viewingPlaylist = playlists.find(p => p.id === viewingPlaylistId);
+  const viewingPlaylist = (playlists || []).find(p => p.id === viewingPlaylistId);
 
   // Socket connection for collaborative playlists
   useEffect(() => {
@@ -1533,7 +1533,7 @@ const LibraryView = () => {
           </div>
         </div>
         <div className="flex-1 overflow-y-auto">
-          {viewingPlaylist.songs.length > 0 ? (
+          {viewingPlaylist.songs && viewingPlaylist.songs.length > 0 ? (
             <SongList title={`${viewingPlaylist.songs.length} songs`} songs={viewingPlaylist.songs} playlistId={viewingPlaylist.id} isCollaborative={viewingPlaylist.isCollaborative} collabId={viewingPlaylist.collabId} />
           ) : (
             <div className="text-center text-zinc-500 mt-10">This playlist is empty.</div>
@@ -1660,21 +1660,21 @@ const LibraryView = () => {
             )}
 
             <div className="grid grid-cols-2 gap-4">
-              {playlists.map((playlist) => (
+              {(playlists || []).map((playlist) => (
                 <div 
                   key={playlist.id} 
                   onClick={() => setViewingPlaylistId(playlist.id)}
                   className="bg-zinc-900/40 rounded-xl p-4 border border-zinc-800 hover:border-red-900/50 transition-colors relative group cursor-pointer"
                 >
                   <div className="aspect-square rounded-lg bg-zinc-800 mb-3 flex items-center justify-center overflow-hidden">
-                    {playlist.songs.length > 0 && playlist.songs[0].artworkUrl ? (
+                    {playlist.songs && playlist.songs.length > 0 && playlist.songs[0].artworkUrl ? (
                       <img src={playlist.songs[0].artworkUrl} className="w-full h-full object-cover opacity-80" />
                     ) : (
                       <ListMusic size={32} className="text-zinc-600" />
                     )}
                   </div>
                   <h3 className="font-bold text-white truncate">{playlist.name}</h3>
-                  <p className="text-xs text-zinc-400">{playlist.songs.length} songs</p>
+                  <p className="text-xs text-zinc-400">{playlist.songs ? playlist.songs.length : 0} songs</p>
                   
                   <button 
                     onClick={(e) => {
@@ -1688,25 +1688,25 @@ const LibraryView = () => {
                 </div>
               ))}
             </div>
-            {playlists.length === 0 && !isCreating && (
+            {(playlists || []).length === 0 && !isCreating && (
               <div className="text-center text-zinc-500 mt-10">No playlists yet.</div>
             )}
           </div>
         ) : activeTab === 'liked' ? (
-          likedSongs.length > 0 ? (
-            <SongList title={`${likedSongs.length} songs`} songs={likedSongs} />
+          (likedSongs || []).length > 0 ? (
+            <SongList title={`${(likedSongs || []).length} songs`} songs={likedSongs || []} />
           ) : (
             <div className="text-center text-zinc-500 mt-10">No liked songs yet.</div>
           )
         ) : activeTab === 'downloads' ? (
-          Object.values(downloadedSongs).length > 0 ? (
-            <SongList title={`${Object.values(downloadedSongs).length} downloaded songs`} songs={Object.values(downloadedSongs)} />
+          Object.values(downloadedSongs || {}).length > 0 ? (
+            <SongList title={`${Object.values(downloadedSongs || {}).length} downloaded songs`} songs={Object.values(downloadedSongs || {})} />
           ) : (
             <div className="text-center text-zinc-500 mt-10">No downloaded songs yet.</div>
           )
         ) : (
-          history.length > 0 ? (
-            <SongList title="Recent" songs={history} />
+          (history || []).length > 0 ? (
+            <SongList title="Recent" songs={history || []} />
           ) : (
             <div className="text-center text-zinc-500 mt-10">No listening history.</div>
           )

@@ -38,21 +38,21 @@ export const useLibraryStore = create<LibraryState>()(
       
       toggleLike: (song) => {
         const { likedSongs } = get();
-        const isLiked = likedSongs.some((s) => s.id === song.id);
+        const isLiked = (likedSongs || []).some((s) => s.id === song.id);
         
         if (isLiked) {
-          set({ likedSongs: likedSongs.filter((s) => s.id !== song.id) });
+          set({ likedSongs: (likedSongs || []).filter((s) => s.id !== song.id) });
         } else {
-          set({ likedSongs: [song, ...likedSongs] });
+          set({ likedSongs: [song, ...(likedSongs || [])] });
         }
       },
       
-      isLiked: (songId) => get().likedSongs.some((s) => s.id === songId),
+      isLiked: (songId) => (get().likedSongs || []).some((s) => s.id === songId),
       
       addToHistory: (song) => {
         const { history } = get();
         // Remove if already exists to move it to top
-        const filteredHistory = history.filter((s) => s.id !== song.id);
+        const filteredHistory = (history || []).filter((s) => s.id !== song.id);
         set({ history: [song, ...filteredHistory].slice(0, 50) }); // Keep last 50
       },
 
@@ -64,12 +64,12 @@ export const useLibraryStore = create<LibraryState>()(
           songs: [],
           createdAt: Date.now(),
         };
-        set({ playlists: [...playlists, newPlaylist] });
+        set({ playlists: [...(playlists || []), newPlaylist] });
       },
 
       deletePlaylist: (id) => {
         const { playlists } = get();
-        set({ playlists: playlists.filter((p) => p.id !== id) });
+        set({ playlists: (playlists || []).filter((p) => p.id !== id) });
       },
 
       addSongToPlaylist: (playlistId, song) => {
@@ -77,10 +77,10 @@ export const useLibraryStore = create<LibraryState>()(
         let updatedPlaylist: Playlist | undefined;
         
         set({
-          playlists: playlists.map((p) => {
+          playlists: (playlists || []).map((p) => {
             if (p.id === playlistId) {
-              if (!p.songs.some((s) => s.id === song.id)) {
-                updatedPlaylist = { ...p, songs: [...p.songs, song] };
+              if (!(p.songs || []).some((s) => s.id === song.id)) {
+                updatedPlaylist = { ...p, songs: [...(p.songs || []), song] };
                 return updatedPlaylist;
               }
             }
@@ -105,9 +105,9 @@ export const useLibraryStore = create<LibraryState>()(
         let updatedPlaylist: Playlist | undefined;
 
         set({
-          playlists: playlists.map((p) => {
+          playlists: (playlists || []).map((p) => {
             if (p.id === playlistId) {
-              updatedPlaylist = { ...p, songs: p.songs.filter((s) => s.id !== songId) };
+              updatedPlaylist = { ...p, songs: (p.songs || []).filter((s) => s.id !== songId) };
               return updatedPlaylist;
             }
             return p;
@@ -131,7 +131,7 @@ export const useLibraryStore = create<LibraryState>()(
         let updatedPlaylist: Playlist | undefined;
 
         set({
-          playlists: playlists.map((p) => {
+          playlists: (playlists || []).map((p) => {
             if (p.id === playlistId) {
               updatedPlaylist = { ...p, songs };
               return updatedPlaylist;
@@ -155,7 +155,7 @@ export const useLibraryStore = create<LibraryState>()(
       updatePlaylistSongs: (playlistId, songs) => {
         const { playlists } = get();
         set({
-          playlists: playlists.map((p) => {
+          playlists: (playlists || []).map((p) => {
             if (p.id === playlistId || p.collabId === playlistId) {
               return { ...p, songs };
             }
@@ -170,7 +170,7 @@ export const useLibraryStore = create<LibraryState>()(
         let updatedPlaylist: Playlist | undefined;
         
         set({
-          playlists: playlists.map((p) => {
+          playlists: (playlists || []).map((p) => {
             if (p.id === playlistId) {
               updatedPlaylist = { ...p, isCollaborative: true, collabId };
               return updatedPlaylist;
@@ -196,8 +196,8 @@ export const useLibraryStore = create<LibraryState>()(
 
       joinCollaborativePlaylist: (playlist) => {
         const { playlists } = get();
-        if (!playlists.some(p => p.collabId === playlist.collabId)) {
-          set({ playlists: [...playlists, playlist] });
+        if (!(playlists || []).some(p => p.collabId === playlist.collabId)) {
+          set({ playlists: [...(playlists || []), playlist] });
         }
       }
     }),
