@@ -21,11 +21,11 @@ export const useDownloadStore = create<DownloadState>()(
 
       downloadSong: async (song) => {
         const { isDownloading, downloadedSongs } = get();
-        if (isDownloading[song.id] || downloadedSongs[song.id]) return;
+        if ((isDownloading || {})[song.id] || (downloadedSongs || {})[song.id]) return;
 
         set((state) => ({
-          isDownloading: { ...state.isDownloading, [song.id]: true },
-          downloadProgress: { ...state.downloadProgress, [song.id]: 0 }
+          isDownloading: { ...(state.isDownloading || {}), [song.id]: true },
+          downloadProgress: { ...(state.downloadProgress || {}), [song.id]: 0 }
         }));
 
         try {
@@ -50,7 +50,7 @@ export const useDownloadStore = create<DownloadState>()(
             
             if (total) {
               set((state) => ({
-                downloadProgress: { ...state.downloadProgress, [song.id]: (received / total) * 100 }
+                downloadProgress: { ...(state.downloadProgress || {}), [song.id]: (received / total) * 100 }
               }));
             }
           }
@@ -78,14 +78,14 @@ export const useDownloadStore = create<DownloadState>()(
           const localSong = { ...song, previewUrl: `/downloaded/${song.id}`, isOffline: true };
           
           set((state) => ({
-            downloadedSongs: { ...state.downloadedSongs, [song.id]: localSong },
-            isDownloading: { ...state.isDownloading, [song.id]: false }
+            downloadedSongs: { ...(state.downloadedSongs || {}), [song.id]: localSong },
+            isDownloading: { ...(state.isDownloading || {}), [song.id]: false }
           }));
 
         } catch (error) {
           console.error('Download failed:', error);
           set((state) => ({
-            isDownloading: { ...state.isDownloading, [song.id]: false }
+            isDownloading: { ...(state.isDownloading || {}), [song.id]: false }
           }));
         }
       },
@@ -93,7 +93,7 @@ export const useDownloadStore = create<DownloadState>()(
       removeDownload: async (songId) => {
         try {
           const state = get();
-          const song = state.downloadedSongs[songId];
+          const song = (state.downloadedSongs || {})[songId];
           
           const cache = await caches.open('sk-music-downloads');
           await cache.delete(`/downloaded/${songId}`);
@@ -103,7 +103,7 @@ export const useDownloadStore = create<DownloadState>()(
           }
           
           set((state) => {
-            const newDownloaded = { ...state.downloadedSongs };
+            const newDownloaded = { ...(state.downloadedSongs || {}) };
             delete newDownloaded[songId];
             return { downloadedSongs: newDownloaded };
           });
@@ -113,7 +113,7 @@ export const useDownloadStore = create<DownloadState>()(
       },
 
       isDownloaded: (songId) => {
-        return !!get().downloadedSongs[songId];
+        return !!(get().downloadedSongs || {})[songId];
       }
     }),
     {

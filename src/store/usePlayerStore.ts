@@ -61,32 +61,34 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setCurrentSong: (song) => set({ currentSong: song, isPlaying: true }),
   setQueue: (queue) => set((state) => {
+    const safeQueue = queue || [];
     if (state.isShuffle) {
       // If we are setting a completely new queue while shuffle is on, we should shuffle it immediately
-      const shuffled = [...queue];
+      const shuffled = [...safeQueue];
       for (let i = shuffled.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
       }
-      return { queue: shuffled, originalQueue: queue };
+      return { queue: shuffled, originalQueue: safeQueue };
     }
-    return { queue, originalQueue: queue };
+    return { queue: safeQueue, originalQueue: safeQueue };
   }),
   appendQueue: (songs) => set((state) => {
+    const safeSongs = songs || [];
     if (state.isShuffle) {
-      const shuffledNew = [...songs];
+      const shuffledNew = [...safeSongs];
       for (let i = shuffledNew.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [shuffledNew[i], shuffledNew[j]] = [shuffledNew[j], shuffledNew[i]];
       }
       return { 
-        queue: [...state.queue, ...shuffledNew], 
-        originalQueue: [...state.originalQueue, ...songs] 
+        queue: [...(state.queue || []), ...shuffledNew], 
+        originalQueue: [...(state.originalQueue || []), ...safeSongs] 
       };
     }
     return { 
-      queue: [...state.queue, ...songs], 
-      originalQueue: [...state.originalQueue, ...songs] 
+      queue: [...(state.queue || []), ...safeSongs], 
+      originalQueue: [...(state.originalQueue || []), ...safeSongs] 
     };
   }),
   play: () => set({ isPlaying: true }),
@@ -94,20 +96,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
   togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
   next: () => {
     const { currentSong, queue, isRepeat } = get();
-    if (!currentSong || queue.length === 0) return;
+    const safeQueue = queue || [];
+    if (!currentSong || safeQueue.length === 0) return;
     
     if (isRepeat) {
       set({ progress: 0, isPlaying: true });
       return;
     }
 
-    const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
-    const nextIndex = (currentIndex + 1) % queue.length;
-    set({ currentSong: queue[nextIndex], isPlaying: true });
+    const currentIndex = safeQueue.findIndex((s) => s.id === currentSong.id);
+    const nextIndex = (currentIndex + 1) % safeQueue.length;
+    set({ currentSong: safeQueue[nextIndex], isPlaying: true });
   },
   previous: () => {
     const { currentSong, queue, progress } = get();
-    if (!currentSong || queue.length === 0) return;
+    const safeQueue = queue || [];
+    if (!currentSong || safeQueue.length === 0) return;
     
     // If played more than 3 seconds, restart current song
     if (progress > 3) {
@@ -115,22 +119,23 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       return;
     }
 
-    const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
-    const prevIndex = (currentIndex - 1 + queue.length) % queue.length;
-    set({ currentSong: queue[prevIndex], isPlaying: true });
+    const currentIndex = safeQueue.findIndex((s) => s.id === currentSong.id);
+    const prevIndex = (currentIndex - 1 + safeQueue.length) % safeQueue.length;
+    set({ currentSong: safeQueue[prevIndex], isPlaying: true });
   },
   setProgress: (progress) => set({ progress }),
   setDuration: (duration) => set({ duration }),
   setVolume: (volume) => set({ volume }),
   toggleShuffle: () => set((state) => {
     const isShuffle = !state.isShuffle;
+    const safeQueue = state.queue || [];
     if (isShuffle) {
-      if (!state.currentSong || state.queue.length <= 1) return { isShuffle };
-      const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+      if (!state.currentSong || safeQueue.length <= 1) return { isShuffle };
+      const currentIndex = safeQueue.findIndex((s) => s.id === state.currentSong!.id);
       if (currentIndex === -1) return { isShuffle };
       
-      const playedSongs = state.queue.slice(0, currentIndex + 1);
-      const remainingSongs = state.queue.slice(currentIndex + 1);
+      const playedSongs = safeQueue.slice(0, currentIndex + 1);
+      const remainingSongs = safeQueue.slice(currentIndex + 1);
       
       for (let i = remainingSongs.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -139,7 +144,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
       
       return { isShuffle, queue: [...playedSongs, ...remainingSongs] };
     } else {
-      return { isShuffle, queue: state.originalQueue };
+      return { isShuffle, queue: state.originalQueue || [] };
     }
   }),
   toggleRepeat: () => set((state) => ({ isRepeat: !state.isRepeat })),
@@ -148,21 +153,22 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     if (!state.currentSong) {
       return { currentSong: song, queue: [song], originalQueue: [song], isPlaying: true };
     }
-    return { queue: [...state.queue, song], originalQueue: [...state.originalQueue, song] };
+    return { queue: [...(state.queue || []), song], originalQueue: [...(state.originalQueue || []), song] };
   }),
   removeFromQueue: (index) => set((state) => {
-    const newQueue = [...state.queue];
+    const newQueue = [...(state.queue || [])];
     const removedSong = newQueue.splice(index, 1)[0];
-    const newOriginalQueue = state.originalQueue.filter(s => s.id !== removedSong.id);
+    const newOriginalQueue = (state.originalQueue || []).filter(s => s.id !== removedSong?.id);
     return { queue: newQueue, originalQueue: newOriginalQueue };
   }),
   shuffleQueue: () => set((state) => {
-    if (!state.currentSong || state.queue.length <= 1) return state;
-    const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+    const safeQueue = state.queue || [];
+    if (!state.currentSong || safeQueue.length <= 1) return state;
+    const currentIndex = safeQueue.findIndex((s) => s.id === state.currentSong!.id);
     if (currentIndex === -1) return state;
     
-    const playedSongs = state.queue.slice(0, currentIndex + 1);
-    const remainingSongs = state.queue.slice(currentIndex + 1);
+    const playedSongs = safeQueue.slice(0, currentIndex + 1);
+    const remainingSongs = safeQueue.slice(currentIndex + 1);
     
     for (let i = remainingSongs.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
@@ -172,12 +178,13 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
     return { queue: [...playedSongs, ...remainingSongs] };
   }),
   reorderUpcomingQueue: (newUpcomingQueue) => set((state) => {
+    const safeQueue = state.queue || [];
     if (!state.currentSong) return state;
-    const currentIndex = state.queue.findIndex((s) => s.id === state.currentSong!.id);
+    const currentIndex = safeQueue.findIndex((s) => s.id === state.currentSong!.id);
     if (currentIndex === -1) return state;
     
-    const playedSongs = state.queue.slice(0, currentIndex + 1);
-    const newQueue = [...playedSongs, ...newUpcomingQueue];
+    const playedSongs = safeQueue.slice(0, currentIndex + 1);
+    const newQueue = [...playedSongs, ...(newUpcomingQueue || [])];
     
     if (state.isShuffle) {
       return { queue: newQueue };

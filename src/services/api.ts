@@ -47,10 +47,10 @@ export const fetchRecommendations = async (history: Song[], likedSongs: Song[]):
     
     [...(history || []), ...(likedSongs || [])].forEach(song => {
       if (song.artist) {
-        song.artist.split(',').forEach(a => artists.add(a.trim()));
+        (song.artist || '').split(',').forEach(a => artists.add(a.trim()));
       }
       if (song.title) {
-        keywords.add(song.title.split(' ')[0]); // Simple keyword extraction
+        keywords.add((song.title || '').split(' ')[0]); // Simple keyword extraction
       }
     });
 

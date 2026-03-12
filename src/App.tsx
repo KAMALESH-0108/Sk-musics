@@ -95,8 +95,8 @@ const MiniPlayer = () => {
               className="hover:text-white transition-colors cursor-pointer truncate"
               onClick={async (e) => {
                 e.stopPropagation();
-                const artists = currentSong.artist.split(',');
-                if (artists.length > 0) {
+                const artists = (currentSong.artist || '').split(',');
+                if (artists.length > 0 && artists[0]) {
                   const artistName = artists[0].trim();
                   try {
                     const results = await fetch(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`).then(res => res.json());
@@ -439,7 +439,7 @@ const FullScreenPlayer = () => {
   const progressPercent = duration > 0 ? (progress / duration) * 100 : 0;
   const liked = isLiked(currentSong.id);
   const downloaded = isDownloaded(currentSong.id);
-  const downloading = isDownloading[currentSong.id];
+  const downloading = (isDownloading || {})[currentSong.id];
 
   const startJam = () => {
     const newJamId = Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -532,9 +532,9 @@ const FullScreenPlayer = () => {
                     </div>
                     
                     <div className="w-full mb-6">
-                      <h4 className="text-sm font-semibold text-zinc-300 mb-3">Listeners ({jamUsers.length})</h4>
+                      <h4 className="text-sm font-semibold text-zinc-300 mb-3">Listeners ({(jamUsers || []).length})</h4>
                       <div className="flex flex-col gap-2">
-                        {jamUsers.map((u: any, i: number) => (
+                        {(jamUsers || []).map((u: any, i: number) => (
                           <div key={i} className="flex items-center gap-3 bg-zinc-800/50 p-2 rounded-lg">
                             <div className="w-8 h-8 rounded-full bg-red-900/50 flex items-center justify-center text-red-300 font-bold">
                               {u.name ? u.name[0].toUpperCase() : 'U'}
@@ -601,7 +601,7 @@ const FullScreenPlayer = () => {
               <div className="flex-1 overflow-y-auto mb-8 bg-zinc-900/40 rounded-2xl p-4 backdrop-blur-md border border-red-900/30 hide-scrollbar flex flex-col">
                 <div className="flex justify-between items-center mb-4 px-2">
                   <h3 className="text-white font-bold">Up Next</h3>
-                  {queue.slice(queue.findIndex(s => s.id === currentSong.id) + 1).length > 1 && (
+                  {(queue || []).slice((queue || []).findIndex(s => s.id === currentSong.id) + 1).length > 1 && (
                     <button 
                       onClick={() => {
                         usePlayerStore.getState().shuffleQueue();
@@ -616,13 +616,13 @@ const FullScreenPlayer = () => {
                 </div>
                 <Reorder.Group 
                   axis="y" 
-                  values={queue.slice(queue.findIndex(s => s.id === currentSong.id) + 1).map((song, idx) => ({ _key: `${song.id}-${idx}`, song }))} 
+                  values={(queue || []).slice((queue || []).findIndex(s => s.id === currentSong.id) + 1).map((song, idx) => ({ _key: `${song.id}-${idx}`, song }))} 
                   onReorder={(newOrder) => usePlayerStore.getState().reorderUpcomingQueue(newOrder.map(item => item.song))}
                   className="flex flex-col gap-2 flex-1"
                 >
                   <AnimatePresence>
-                    {queue.slice(queue.findIndex(s => s.id === currentSong.id) + 1).map((song, idx) => {
-                      const actualIndex = queue.findIndex(s => s.id === currentSong.id) + 1 + idx;
+                    {(queue || []).slice((queue || []).findIndex(s => s.id === currentSong.id) + 1).map((song, idx) => {
+                      const actualIndex = (queue || []).findIndex(s => s.id === currentSong.id) + 1 + idx;
                       const item = { _key: `${song.id}-${idx}`, song };
                       return (
                         <QueueItem 
@@ -634,7 +634,7 @@ const FullScreenPlayer = () => {
                       )
                     })}
                   </AnimatePresence>
-                  {queue.slice(queue.findIndex(s => s.id === currentSong.id) + 1).length === 0 && (
+                  {(queue || []).slice((queue || []).findIndex(s => s.id === currentSong.id) + 1).length === 0 && (
                     <div className="text-center text-zinc-500 mt-10 flex flex-col items-center gap-2">
                       <ListMusic size={32} className="opacity-50" />
                       <p>Queue is empty</p>
@@ -664,8 +664,8 @@ const FullScreenPlayer = () => {
                     className="hover:text-white transition-colors cursor-pointer truncate"
                     onClick={async (e) => {
                       e.stopPropagation();
-                      const artists = currentSong.artist.split(',');
-                      if (artists.length > 0) {
+                      const artists = (currentSong.artist || '').split(',');
+                      if (artists.length > 0 && artists[0]) {
                         const artistName = artists[0].trim();
                         try {
                           const results = await fetch(`https://jiosaavn-api-privatecvc2.vercel.app/search/artists?query=${artistName}`).then(res => res.json());
@@ -866,7 +866,7 @@ const SongList = ({ songs, title, playlistId, isCollaborative, collabId }: { son
         {(songs || []).map((song, idx) => {
           const isCurrent = currentSong?.id === song.id;
           const downloaded = isDownloaded(song.id);
-          const downloading = isDownloading[song.id];
+          const downloading = (isDownloading || {})[song.id];
 
           return (
             <motion.div key={song.id} className="relative" whileHover={{ scale: 1.02, x: 5 }} whileTap={{ scale: 0.98 }}>
@@ -903,7 +903,7 @@ const SongList = ({ songs, title, playlistId, isCollaborative, collabId }: { son
                       className="hover:text-white transition-colors cursor-pointer truncate"
                       onClick={async (e) => {
                         e.stopPropagation();
-                        const artists = song.artist.split(',');
+                        const artists = (song.artist || '').split(',');
                         if (artists.length > 0) {
                           const artistName = artists[0].trim();
                           try {
@@ -1171,7 +1171,7 @@ const HomeView = () => {
                   className="hover:text-white transition-colors cursor-pointer truncate"
                   onClick={async (e) => {
                     e.stopPropagation();
-                    const artists = song.artist.split(',');
+                    const artists = (song.artist || '').split(',');
                     if (artists.length > 0) {
                       const artistName = artists[0].trim();
                       try {
@@ -2127,14 +2127,15 @@ export default function App() {
       
       // Pre-fetch next songs for auto-play when 15 seconds are left in the last song
       const { currentSong, queue, isRepeat, appendQueue } = usePlayerStore.getState();
+      const safeQueue = queue || [];
       if (currentSong && !isRepeat && !isFetchingAutoPlay && audio.duration > 0 && (audio.duration - audio.currentTime < 15)) {
-        const currentIndex = queue.findIndex((s) => s.id === currentSong.id);
-        if (currentIndex === queue.length - 1) {
+        const currentIndex = safeQueue.findIndex((s) => s.id === currentSong.id);
+        if (currentIndex === safeQueue.length - 1) {
           isFetchingAutoPlay = true;
           try {
-            const artist = currentSong.artist.split(',')[0].trim();
+            const artist = (currentSong.artist || '').split(',')[0].trim();
             const similarSongs = await fetchTamilMusic(`tamil ${artist}`, 10);
-            const newSongs = similarSongs.filter(s => !queue.find(qs => qs.id === s.id));
+            const newSongs = similarSongs.filter(s => !safeQueue.find(qs => qs.id === s.id));
             
             if (newSongs.length > 0) {
               appendQueue(newSongs);
@@ -2208,7 +2209,7 @@ export default function App() {
 
   useEffect(() => {
     if (audioRef.current && currentSong) {
-      const downloadedSong = useDownloadStore.getState().downloadedSongs[currentSong.id];
+      const downloadedSong = (useDownloadStore.getState().downloadedSongs || {})[currentSong.id];
       const audioUrl = downloadedSong ? downloadedSong.previewUrl : currentSong.previewUrl;
       
       if (!audioRef.current.src.endsWith(audioUrl)) {
@@ -2230,9 +2231,9 @@ export default function App() {
       // Update Media Session API for lock screen / notification controls
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
-          title: currentSong.title,
-          artist: currentSong.artist,
-          album: currentSong.album,
+          title: currentSong.title || 'Unknown Title',
+          artist: currentSong.artist || 'Unknown Artist',
+          album: currentSong.album || 'Unknown Album',
           artwork: [
             { src: currentSong.artworkUrl || 'https://picsum.photos/seed/music/512/512', sizes: '512x512', type: 'image/jpeg' }
           ]

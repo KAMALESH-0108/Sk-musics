@@ -36,7 +36,7 @@ export const ArtistProfile: React.FC = () => {
           // Or by extracting artists from their top songs
           const related = new Map();
           artistSongs.forEach(song => {
-            const songArtists = song.artist.split(',').map(a => a.trim());
+            const songArtists = (song.artist || '').split(',').map(a => a.trim());
             songArtists.forEach(a => {
               if (a.toLowerCase() !== details.name.toLowerCase() && !related.has(a)) {
                 related.set(a, true);
